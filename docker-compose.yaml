@@ -1,0 +1,15 @@
+version: '3'
+
+networks:
+  crowd:
+    driver: bridge
+
+services:
+  master:
+    image: atlassian/crowd
+    ports:
+      - 8095:8095
+    volumes:
+      - $PWD/docker:/var/atlassian/application-data/crowd
+    networks:
+      - crowd
