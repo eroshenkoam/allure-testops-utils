@@ -80,7 +80,7 @@ public class SyncCommand implements Runnable {
     @CommandLine.Option(
             names = {"--crowd.group.filter"},
             description = "Atlassian Crowd group filter",
-            defaultValue = "${env:CROWD__GROUP_FILTER}"
+            defaultValue = "${env:CROWD_GROUP_FILTER}"
     )
     protected String crowdGroupFilter;
 
