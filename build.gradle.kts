@@ -64,6 +64,8 @@ dependencies {
     annotationProcessor("info.picocli:picocli-codegen:4.1.4")
     implementation("info.picocli:picocli:4.1.4")
 
+    implementation("org.springframework.ldap:spring-ldap-core:2.3.7.RELEASE")
+
     implementation("com.squareup.retrofit2:converter-jackson:2.7.2")
     implementation("com.squareup.retrofit2:retrofit:2.7.2")
 

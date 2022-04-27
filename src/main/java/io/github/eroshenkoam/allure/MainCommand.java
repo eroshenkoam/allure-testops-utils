@@ -1,11 +1,11 @@
 package io.github.eroshenkoam.allure;
 
-import io.github.eroshenkoam.allure.command.SyncCrowdGroupsCommand;
+import io.github.eroshenkoam.allure.command.CrowdSyncGroupsCommand;
 import picocli.CommandLine;
 
 @CommandLine.Command(
         name = "allure-testops", mixinStandardHelpOptions = true,
-        subcommands = {SyncCrowdGroupsCommand.class}
+        subcommands = {CrowdSyncGroupsCommand.class}
 )
 public class MainCommand implements Runnable{
 
