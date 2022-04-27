@@ -1,4 +1,4 @@
-package io.github.eroshenkoam.allure.sync;
+package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.eroshenkoam.allure.crowd.CrowdGroup;
@@ -11,6 +11,7 @@ import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.dto.Account;
 import io.qameta.allure.ee.client.dto.Group;
 import io.qameta.allure.ee.client.dto.GroupUser;
+import io.qameta.allure.ee.client.dto.Page;
 import okhttp3.OkHttpClient;
 import picocli.CommandLine;
 import retrofit2.Response;
@@ -30,10 +31,10 @@ import java.util.stream.Collectors;
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
 @CommandLine.Command(
-        name = "sync", mixinStandardHelpOptions = true,
+        name = "sync-crowd-groups", mixinStandardHelpOptions = true,
         description = "Sync Atlassian Crowd groups with Allure TestOps"
 )
-public class SyncCommand implements Runnable {
+public class SyncCrowdGroupsCommand implements Runnable {
 
     @CommandLine.Option(
             names = {"--allure.endpoint"},
@@ -82,7 +83,7 @@ public class SyncCommand implements Runnable {
             description = "Atlassian Crowd group filter",
             defaultValue = "${env:CROWD_GROUP_FILTER}"
     )
-    protected String crowdGroupFilter;
+    protected String crowdGroupFilter = ".*";
 
     @Override
     public void run() {
@@ -110,11 +111,11 @@ public class SyncCommand implements Runnable {
 
     private List<String> getAllureUsernames(final AccountService accountService) throws IOException {
 
-        final Response<List<Account>> accountsResponse = accountService.getAccounts().execute();
+        final Response<Page<Account>> accountsResponse = accountService.getAccounts().execute();
         if (!accountsResponse.isSuccessful()) {
             throw new RuntimeException(accountsResponse.message());
         }
-        final List<Account> accounts = accountsResponse.body();
+        final List<Account> accounts = accountsResponse.body().getContent();
         return accounts.stream()
                 .map(Account::getUsername)
                 .collect(Collectors.toList());

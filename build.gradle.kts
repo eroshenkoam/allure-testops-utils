@@ -54,7 +54,7 @@ repositories {
     mavenLocal()
     mavenCentral()
     maven("https://maven.atlassian.com/content/groups/public/")
-    maven("https://dl.bintray.com/qameta/maven-unstable/")
+    maven("https://dl.qameta.io/artifactory/maven/")
 }
 
 dependencies {
@@ -67,5 +67,5 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-jackson:2.7.2")
     implementation("com.squareup.retrofit2:retrofit:2.7.2")
 
-    implementation("io.qameta.allure:allure-ee-client:3.28-SNAPSHOT")
+    implementation("io.qameta.allure:allure-ee-client:3.40.3")
 }
