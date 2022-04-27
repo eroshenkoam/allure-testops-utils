@@ -6,3 +6,6 @@
 .gradle
 docker
 build
+
+# Test
+*Test.java
