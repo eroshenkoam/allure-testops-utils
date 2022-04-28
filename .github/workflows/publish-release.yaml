@@ -28,4 +28,6 @@ jobs:
         with:
           push: true
           context: build/docker
-          tags: ghcr.io/eroshenkoam/allure-testops-utils:${{ env.PROJECT_VERSION }}
+          tags: | 
+            ghcr.io/eroshenkoam/allure-testops-utils:${{ env.PROJECT_VERSION }}
+            ghcr.io/eroshenkoam/allure-testops-utils:latest
