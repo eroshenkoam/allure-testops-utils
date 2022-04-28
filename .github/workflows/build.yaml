@@ -22,6 +22,6 @@ jobs:
       - name: Build Docker
         uses: docker/build-push-action@v2
         with:
-          push: true
+          push: false
           context: build/docker
-          tags: ghcr.io/eroshenkoam/allure-testops-utils:${{ env.PROJECT_VERSION }}
+          tags: ghcr.io/eroshenkoam/allure-testops-utils
