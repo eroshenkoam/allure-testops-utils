@@ -2,6 +2,7 @@ package io.github.eroshenkoam.allure.command;
 
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.ldap.NameNotFoundException;
+import org.springframework.ldap.core.AttributesMapper;
 import org.springframework.ldap.core.DirContextOperations;
 import org.springframework.ldap.core.LdapTemplate;
 import org.springframework.ldap.core.support.LdapContextSource;
@@ -92,13 +93,7 @@ public class LdapSyncGroupsCommand extends AbstractSyncGroupsCommand {
     protected String groupRoleAttribute;
 
     public Map<String, List<String>> getGroups(final List<String> usernames) {
-        final LdapContextSource source = new LdapContextSource();
-        source.setUrl(ldapUrl);
-        source.setUserDn(ldapUserDN);
-        source.setPassword(ldapPassword);
-        source.setReferral(ldapReferral);
-        final LdapTemplate ldapTemplate = new LdapTemplate(source);
-
+        final LdapTemplate ldapTemplate = createTemplate();
         final Map<String, String> dns = usernames.stream()
                 .map(username -> {
                     try {
@@ -120,10 +115,10 @@ public class LdapSyncGroupsCommand extends AbstractSyncGroupsCommand {
 
         final Map<String, List<String>> groupUsers = new HashMap<>();
         dns.forEach((username, dn) -> {
-            DirContextOperations dirContextOperations = ldapTemplate.searchForContext(
-                    LdapQueryBuilder.query().base(groupSearchBase).filter(groupSearchFilter, dn)
+            final List<String> groups = ldapTemplate.search(
+                    LdapQueryBuilder.query().base(groupSearchBase).filter(groupSearchFilter, dn),
+                    (AttributesMapper<String>) attributes -> attributes.get(groupRoleAttribute).get().toString()
             );
-            List<String> groups = new ArrayList<>();
             groups.forEach(group -> {
                 final List<String> users = groupUsers.getOrDefault(group, new ArrayList<>());
                 users.add(username);
@@ -133,5 +128,14 @@ public class LdapSyncGroupsCommand extends AbstractSyncGroupsCommand {
         return groupUsers;
     }
 
+    private LdapTemplate createTemplate() {
+        final LdapContextSource source = new LdapContextSource();
+        source.setUrl(ldapUrl);
+        source.setUserDn(ldapUserDN);
+        source.setPassword(ldapPassword);
+        Optional.ofNullable(ldapReferral).ifPresent(source::setReferral);
+        source.afterPropertiesSet();
+        return new LdapTemplate(source);
+    }
 
 }
