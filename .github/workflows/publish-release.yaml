@@ -17,8 +17,16 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 11.0.x
-      - name: "Build Project"
+      - name: Build Project
         run: ./gradlew build prepareDockerfile
+      - name: Build Version
+        run: echo "PROJECT_VERSION=${GITHUB_REF:10}" >> $GITHUB_ENV
+      - name: Login Docker
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.PACKAGES_USER }}
+          password: ${{ secrets.PACKAGES_PASS }}
       - name: Build Docker
         uses: docker/build-push-action@v2
         with:
