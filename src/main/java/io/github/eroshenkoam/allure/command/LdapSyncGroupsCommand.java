@@ -53,7 +53,7 @@ public class LdapSyncGroupsCommand extends AbstractSyncGroupsCommand {
     @CommandLine.Option(
             names = {"--ldap.uidAttribute"},
             description = "Ldap UID attribute",
-            defaultValue = "${env:CROWD_UIDATTRIBUTE}"
+            defaultValue = "${env:LDAP_UIDATTRIBUTE}"
     )
     protected String uidAttribute;
 
