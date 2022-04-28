@@ -1,25 +1,19 @@
 package io.github.eroshenkoam.allure.command;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.eroshenkoam.allure.crowd.CrowdGroup;
-import io.github.eroshenkoam.allure.crowd.CrowdGroups;
-import io.github.eroshenkoam.allure.crowd.CrowdService;
-import io.github.eroshenkoam.allure.retrofit.CrowdInterceptor;
-import okhttp3.OkHttpClient;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.ldap.NameNotFoundException;
+import org.springframework.ldap.core.DirContextOperations;
+import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.core.support.LdapContextSource;
+import org.springframework.ldap.query.LdapQueryBuilder;
 import picocli.CommandLine;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.jackson.JacksonConverterFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
-
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import java.util.stream.Collectors;
 
 @CommandLine.Command(
         name = "sync-ldap-groups", mixinStandardHelpOptions = true,
@@ -28,68 +22,115 @@ import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKN
 public class LdapSyncGroupsCommand extends AbstractSyncGroupsCommand {
 
     @CommandLine.Option(
-            names = {"--crowd.endpoint"},
-            description = "Atlassian Crowd endpoint",
-            defaultValue = "${env:CROWD_ENDPOINT}"
+            names = {"--ldap.url"},
+            description = "Ldap URL",
+            defaultValue = "${env:LDAP_URL}"
     )
-    protected String crowdEndpoint;
+    protected String ldapUrl;
 
     @CommandLine.Option(
-            names = {"--crowd.username"},
-            description = "Atlassian Crowd username",
-            defaultValue = "${env:CROWD_USERNAME}"
+            names = {"--ldap.userDN"},
+            description = "Ldap User DN",
+            defaultValue = "${env:LDAP_USERDN}"
     )
-    protected String crowdUsername;
+    protected String ldapUserDN;
 
     @CommandLine.Option(
-            names = {"--crowd.password"},
-            description = "Atlassian Crowd password",
-            defaultValue = "${env:CROWD_PASSWORD}"
+            names = {"--ldap.password"},
+            description = "Ldap URL",
+            defaultValue = "${env:LDAP_PASSWORD}"
     )
-    protected String crowdPassword;
+    protected String ldapPassword;
 
     @CommandLine.Option(
-            names = {"--crowd.group.filter"},
-            description = "Atlassian Crowd group filter",
-            defaultValue = "${env:CROWD_GROUP_FILTER}"
+            names = {"--ldap.referral"},
+            description = "Ldap referral",
+            defaultValue = "${env:LDAP_REFERRAL}"
     )
-    protected String crowdGroupFilter = ".*";
+    protected String ldapReferral;
 
-    public Map<String, List<String>> getGroups(final List<String> usernames) throws IOException {
+    @CommandLine.Option(
+            names = {"--ldap.uidAttribute"},
+            description = "Ldap UID attribute",
+            defaultValue = "${env:CROWD_UIDATTRIBUTE}"
+    )
+    protected String uidAttribute;
 
-        final OkHttpClient client = new OkHttpClient.Builder()
-                .addInterceptor(new CrowdInterceptor(crowdUsername, crowdPassword))
-                .build();
+    @CommandLine.Option(
+            names = {"--ldap.userSearchBase"},
+            description = "Ldap user search base",
+            defaultValue = "${env:LDAP_USERSEARCHBASE}"
+    )
+    protected String userSearchBase;
 
-        final ObjectMapper mapper = new ObjectMapper()
-                .disable(FAIL_ON_UNKNOWN_PROPERTIES);
+    @CommandLine.Option(
+            names = {"--ldap.userSearchFilter"},
+            description = "Ldap user search filter",
+            defaultValue = "${env:LDAP_USERSEARCHFILTER}"
+    )
+    protected String userSearchFilter;
 
-        final String fixedEndpoint = crowdEndpoint.endsWith("/") ? crowdEndpoint : crowdEndpoint + "/";
-        final Retrofit retrofit = new Retrofit.Builder()
-                .addConverterFactory(JacksonConverterFactory.create(mapper))
-                .baseUrl(fixedEndpoint)
-                .client(client)
-                .build();
+    @CommandLine.Option(
+            names = {"--ldap.groupSearchBase"},
+            description = "Ldap user search base",
+            defaultValue = "${env:LDAP_GROUPSEARCHBASE}"
+    )
+    protected String groupSearchBase;
 
-        final CrowdService crowdService = retrofit.create(CrowdService.class);
-        final Map<String, List<String>> result = new HashMap<>();
-        for (String username : usernames) {
-            final Response<CrowdGroups> groupsResponse = crowdService.getUserNestedGroups(username).execute();
-            if (groupsResponse.isSuccessful()) {
-                final List<CrowdGroup> groups = Optional.ofNullable(groupsResponse.body())
-                        .map(CrowdGroups::getGroups)
-                        .orElseGet(ArrayList::new);
-                final Pattern pattern = Pattern.compile(crowdGroupFilter);
-                groups.stream().map(CrowdGroup::getName)
-                        .filter(name -> pattern.matcher(name).matches())
-                        .forEach(name -> {
-                            final List<String> users = result.getOrDefault(name, new ArrayList<>());
-                            users.add(username);
-                            result.put(name, users);
-                        });
-            }
-        }
-        return result;
+    @CommandLine.Option(
+            names = {"--ldap.groupSearchFilter"},
+            description = "Ldap group search filter",
+            defaultValue = "${env:LDAP_GROUPSEARCHFILTER}"
+    )
+    protected String groupSearchFilter;
+
+    @CommandLine.Option(
+            names = {"--ldap.groupRoleAttribute"},
+            description = "Ldap group role attribute",
+            defaultValue = "${env:LDAP_GROUPROLEATTRIBUTE}"
+    )
+    protected String groupRoleAttribute;
+
+    public Map<String, List<String>> getGroups(final List<String> usernames) {
+        final LdapContextSource source = new LdapContextSource();
+        source.setUrl(ldapUrl);
+        source.setUserDn(ldapUserDN);
+        source.setPassword(ldapPassword);
+        source.setReferral(ldapReferral);
+        final LdapTemplate ldapTemplate = new LdapTemplate(source);
+
+        final Map<String, String> dns = usernames.stream()
+                .map(username -> {
+                    try {
+                        final DirContextOperations context = ldapTemplate.searchForContext(
+                                LdapQueryBuilder.query().base(userSearchBase).filter(userSearchFilter, username)
+                        );
+                        return Optional.of(context);
+                    } catch (IncorrectResultSizeDataAccessException | NameNotFoundException e) {
+                        return Optional.empty();
+                    }
+                })
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(DirContextOperations.class::cast)
+                .collect(Collectors.toMap(
+                        d -> d.getStringAttribute(uidAttribute),
+                        DirContextOperations::getNameInNamespace)
+                );
+
+        final Map<String, List<String>> groupUsers = new HashMap<>();
+        dns.forEach((username, dn) -> {
+            DirContextOperations dirContextOperations = ldapTemplate.searchForContext(
+                    LdapQueryBuilder.query().base(groupSearchBase).filter(groupSearchFilter, dn)
+            );
+            List<String> groups = new ArrayList<>();
+            groups.forEach(group -> {
+                final List<String> users = groupUsers.getOrDefault(group, new ArrayList<>());
+                users.add(username);
+                groupUsers.put(group, users);
+            });
+        });
+        return groupUsers;
     }
 
 
