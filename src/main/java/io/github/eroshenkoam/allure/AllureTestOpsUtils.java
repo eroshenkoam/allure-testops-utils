@@ -2,7 +2,7 @@ package io.github.eroshenkoam.allure;
 
 import picocli.CommandLine;
 
-public class AllureTestOpsCrowd {
+public class AllureTestOpsUtils {
 
     public static void main(String[] args) {
         final CommandLine cmd = new CommandLine(new MainCommand());

@@ -12,7 +12,7 @@ group = "io.github.eroshenkoam.allure"
 version = version
 
 application {
-    mainClassName = "io.github.eroshenkoam.allure.AllureTestOpsCrowd"
+    mainClassName = "io.github.eroshenkoam.allure.AllureTestOpsUtils"
 }
 
 val prepareDockerOutput by tasks.creating {
@@ -28,7 +28,6 @@ val prepareDockerfile by tasks.creating(Dockerfile::class) {
     group = "Build"
     dependsOn(prepareDockerOutput)
     destFile.set(project.file("build/docker/Dockerfile"))
-
     from("adoptopenjdk/openjdk11:alpine-jre")
 
     addFile("${project.name}-${project.version}/bin", "/var/lib/${project.name}/bin")
@@ -63,6 +62,8 @@ dependencies {
 
     annotationProcessor("info.picocli:picocli-codegen:4.1.4")
     implementation("info.picocli:picocli:4.1.4")
+
+    implementation("org.springframework.ldap:spring-ldap-core:2.3.7.RELEASE")
 
     implementation("com.squareup.retrofit2:converter-jackson:2.7.2")
     implementation("com.squareup.retrofit2:retrofit:2.7.2")
