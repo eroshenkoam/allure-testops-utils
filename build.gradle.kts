@@ -12,7 +12,7 @@ group = "io.github.eroshenkoam.allure"
 version = version
 
 application {
-    mainClassName = "io.github.eroshenkoam.allure.AllureTestOpsCrowd"
+    mainClassName = "io.github.eroshenkoam.allure.AllureTestOpsUtils"
 }
 
 val prepareDockerOutput by tasks.creating {

@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
 @CommandLine.Command(
-        name = "sync-crowd-groups", mixinStandardHelpOptions = true,
+        name = "sync-ldap-groups", mixinStandardHelpOptions = true,
         description = "Sync Atlassian Crowd groups with Allure TestOps"
 )
 public class LdapSyncGroupsCommand extends AbstractSyncGroupsCommand {
