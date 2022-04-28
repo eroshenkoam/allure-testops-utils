@@ -5,13 +5,13 @@
 ### Atlassian Crowd -> Allure TestOps
 
 ```shell
-docker run -e ALLURE_ENDPOINT=http://localhost:8080 \
-           -e ALLURE_USERNAME=admin \
-           -e ALLURE_PASSWORD=admin \
-           -e CROWD_ENDPOINT=http://localhost:8095/crowd \
-           -e CROWD_USERNAME=crowd-app-name \
-           -e CROWD_PASSWORD=crowd-app-pass \
-           -e CROWD_GROUP_FILTER=.* \
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "CROWD_ENDPOINT=http://localhost:8095/crowd" \
+           -e "CROWD_USERNAME=crowd-app-name" \
+           -e "CROWD_PASSWORD=crowd-app-pass" \
+           -e "CROWD_GROUP_FILTER=.*" \
            ghcr.io/eroshenkoam/allure-testops-utils sync-crowd-groups
 ```
 
