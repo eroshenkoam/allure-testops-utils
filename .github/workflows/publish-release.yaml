@@ -1,12 +1,8 @@
-name: Build
+name: Release Publish
 
 on:
-  pull_request:
-    branches:
-      - '*'
-  push:
-    branches:
-      - 'master'
+  release:
+    types: [published]
 
 jobs:
   build:
