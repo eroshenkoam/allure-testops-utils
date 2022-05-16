@@ -68,5 +68,7 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-jackson:2.7.2")
     implementation("com.squareup.retrofit2:retrofit:2.7.2")
 
+    implementation("joda-time:joda-time:2.10.14")
+
     implementation("io.qameta.allure:allure-ee-client:3.40.3")
 }

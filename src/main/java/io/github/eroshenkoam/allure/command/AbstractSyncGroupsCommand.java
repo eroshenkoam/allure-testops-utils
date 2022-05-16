@@ -17,47 +17,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class AbstractSyncGroupsCommand implements Runnable {
-
-    @CommandLine.Option(
-            names = {"--allure.endpoint"},
-            description = "Allure TestOps endpoint",
-            defaultValue = "${env:ALLURE_ENDPOINT}"
-    )
-    protected String allureEndpoint;
-
-    @CommandLine.Option(
-            names = {"--allure.username"},
-            description = "Allure TestOps username",
-            defaultValue = "${env:ALLURE_USERNAME}"
-    )
-    protected String allureUsername;
-
-    @CommandLine.Option(
-            names = {"--allure.password"},
-            description = "Allure TestOps password",
-            defaultValue = "${env:ALLURE_PASSWORD}"
-    )
-    protected String allurePassword;
+public abstract class AbstractSyncGroupsCommand extends AbstractTestOpsCommand {
 
     public abstract Map<String, List<String>> getGroups(final List<String> usernames) throws IOException;
 
     @Override
-    public void run() {
-        try {
-            runUnsafe();
-        } catch (Exception e) {
-            e.printStackTrace(System.out);
-        }
-    }
-
-    private ServiceBuilder getAllureServiceBuilder() {
-        return new ServiceBuilder(allureEndpoint)
-                .authBasic(allureUsername, allurePassword);
-    }
-
-    private void runUnsafe() throws Exception {
-        final ServiceBuilder builder = getAllureServiceBuilder();
+    public void runUnsafe(final ServiceBuilder builder) throws Exception {
         final AccountService accountService = builder.create(AccountService.class);
         final List<String> usernames = getAllureUsernames(accountService);
         System.out.printf("Prepare to sync %s users from Allure\n", usernames);
