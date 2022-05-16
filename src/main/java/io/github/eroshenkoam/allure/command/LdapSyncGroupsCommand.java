@@ -92,6 +92,7 @@ public class LdapSyncGroupsCommand extends AbstractSyncGroupsCommand {
     )
     protected String groupRoleAttribute;
 
+    @Override
     public Map<String, List<String>> getGroups(final List<String> usernames) {
         final LdapTemplate ldapTemplate = createTemplate();
         final Map<String, String> dns = usernames.stream()
