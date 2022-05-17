@@ -35,7 +35,7 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "ALLURE_PASSWORD=admin" \
            -e "GITLAB_ENDPOINT=https://github.com" \
            -e "GITLAB_TOKEN=<token>" \
-           ghcr.io/eroshenkoam/allure-testops-utils sync-ldap-groups
+           ghcr.io/eroshenkoam/allure-testops-utils sync-gitlab-groups
 ```
 
 ### Ldap -> Allure TestOps
