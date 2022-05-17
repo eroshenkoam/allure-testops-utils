@@ -1,15 +1,17 @@
 # Allure TestOps Utils
 
-## Delete launches in Allure TestOps
+## Export information from Allure TestOps
+
+### Test Cases
 
 ```shell
 docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "ALLURE_USERNAME=admin" \
            -e "ALLURE_PASSWORD=admin" \
-           -e "PROJECT_ID=2" \
-           -e "LAUNCH_FILTER=tag = \"delete\"" \
-           -e "LAUNCH_CREATEDBEFORE=30d 0h 0m" \
-           ghcr.io/eroshenkoam/allure-testops-utils clean-launches
+           -e "ALLURE_PROJECT_ID=1" \
+           -e "ALLURE_TESTCASE_FILTER=tag = \"export\"" \
+           -v "$PWD/output:/opt/allure-testops/output" \
+           ghcr.io/eroshenkoam/allure-testops-utils export-testcases
 ```
 
 ## Sync auth groups with Allure TestOps
@@ -55,3 +57,16 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "LDAP_GROUPROLEATTRIBUTE=cn" \
            ghcr.io/eroshenkoam/allure-testops-utils sync-ldap-groups
 ```
+
+## Delete launches in Allure TestOps
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "PROJECT_ID=2" \
+           -e "LAUNCH_FILTER=tag = \"delete\"" \
+           -e "LAUNCH_CREATEDBEFORE=30d 0h 0m" \
+           ghcr.io/eroshenkoam/allure-testops-utils clean-launches
+```
+
