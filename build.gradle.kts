@@ -5,7 +5,7 @@ import org.gradle.kotlin.dsl.support.unzipTo
 plugins {
     java
     application
-    id("com.bmuschko.docker-remote-api") version "6.6.1"
+    id("com.bmuschko.docker-remote-api") version "7.3.0"
 }
 
 group = "io.github.eroshenkoam.allure"
@@ -37,7 +37,7 @@ val prepareDockerfile by tasks.creating(Dockerfile::class) {
     runCommand("ln -s /var/lib/${project.name}/bin/${project.name} /usr/bin/${project.name}")
 
     entryPoint("/usr/bin/${project.name}")
-    defaultCommand("sync")
+    workingDir("/opt/allure-testops")
 }
 
 val buildDockerImage by tasks.creating(DockerBuildImage::class) {
@@ -64,6 +64,10 @@ dependencies {
     implementation("info.picocli:picocli:4.1.4")
 
     implementation("org.springframework.ldap:spring-ldap-core:2.3.7.RELEASE")
+
+    implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
+    implementation("com.openhtmltopdf:openhtmltopdf-core:1.0.10")
+    implementation("org.freemarker:freemarker:2.3.31")
 
     implementation("com.squareup.retrofit2:converter-jackson:2.7.2")
     implementation("com.squareup.retrofit2:retrofit:2.7.2")
