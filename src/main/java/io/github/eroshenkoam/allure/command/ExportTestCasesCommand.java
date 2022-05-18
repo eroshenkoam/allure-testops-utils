@@ -96,14 +96,22 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
             current = response.body();
             for (TestCase item : current.getContent()) {
                 final TestCaseDto testCase = convertTestCase(item);
-                final Response<Scenario> scenarioResponse = service.getScenario(testCase.getId()).execute();
-                if (response.isSuccessful()) {
-                    testCase.setSteps(convertSteps(scenarioResponse.body().getSteps()));
-                }
+                testCase.setSteps(getTestCaseSteps(service, testCase));
                 testCases.add(testCase);
             }
         } while (current.getNumber() < current.getTotalPages());
         return testCases;
+    }
+
+    private List<TestCaseStepDto> getTestCaseSteps(final TestCaseService service,
+                                                   final TestCaseDto testCase) throws IOException {
+        final Response<Scenario> scenarioResponse = testCase.isAutomated()
+                ? service.getScenarioFromRun(testCase.getId()).execute()
+                : service.getScenario(testCase.getId()).execute();
+        if (scenarioResponse.isSuccessful()) {
+            return convertSteps(scenarioResponse.body().getSteps());
+        }
+        return new ArrayList<>();
     }
 
     private void downloadAttachments(final TestCaseService service, final Long testCaseId) throws IOException {
@@ -131,7 +139,8 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
     private TestCaseDto convertTestCase(final TestCase testCase) {
         return new TestCaseDto()
                 .setId(testCase.getId())
-                .setName(testCase.getName());
+                .setName(testCase.getName())
+                .setAutomated(testCase.getAutomated());
     }
 
     private List<TestCaseStepDto> convertSteps(final List<Step> steps) {

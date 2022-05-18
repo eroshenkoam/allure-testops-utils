@@ -26,7 +26,7 @@
                 <div class="testcase">
                     <h2>
                         <small class="text-muted">${testCase.id}</small>
-                        ${testCase.name}
+                        <![CDATA[${testCase.name}]]>
                     </h2>
                     <div class="steps">
                         <h3>Scenario</h3>
@@ -41,17 +41,19 @@
 </html>
 
 <#macro testCaseSteps testCaseId steps level>
-    <ul class="list-group-numbered">
-        <#list steps as step>
-            <li class="step">
-                <![CDATA[${step.name?html}]]>
-                <#if step.attachments??>
-                    <#list step.attachments as attachment>
-                        <img src="attachments/${testCaseId}/${attachment.name}" class="img-fluid img-thumbnail" />
-                    </#list>
-                </#if>
-                <@testCaseSteps testCaseId step.steps level+1/>
-            </li>
-        </#list>
-    </ul>
+    <#if steps?? && steps?size != 0>
+        <ul class="list-group-numbered">
+            <#list steps as step>
+                <li class="step">
+                    <![CDATA[${step.name}]]>
+                    <#if step.attachments??>
+                        <#list step.attachments as attachment>
+                            <img src="attachments/${testCaseId}/${attachment.name}" class="img-fluid img-thumbnail"/>
+                        </#list>
+                    </#if>
+                    <@testCaseSteps testCaseId step.steps level+1/>
+                </li>
+            </#list>
+        </ul>
+    </#if>
 </#macro>
