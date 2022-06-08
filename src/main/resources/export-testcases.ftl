@@ -28,13 +28,13 @@
                         <small class="text-muted">${testCase.id?c}</small>
                         <![CDATA[${testCase.name}]]>
                     </h2>
-                    <#if testCase.description??>
+                    <#if testCase.description?has_content>
                         <div class="description">
                             <h3>Description</h3>
                             <![CDATA[${testCase.description}]]>
                         </div>
                     </#if>
-                    <#if testCase.precondition??>
+                    <#if testCase.precondition?has_content>
                         <div class="precondition">
                             <h3>Precondition</h3>
                             <![CDATA[${testCase.precondition}]]>
@@ -44,7 +44,7 @@
                         <h3>Scenario</h3>
                         <@testCaseSteps testCase.getId() testCase.steps 0/>
                     </div>
-                    <#if testCase.expectedResult??>
+                    <#if testCase.expectedResult?has_content>
                         <div class="expected-result">
                             <h3>Expected result</h3>
                             <![CDATA[${testCase.expectedResult}]]>
