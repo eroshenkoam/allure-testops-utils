@@ -105,9 +105,16 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
 
     private List<TestCaseStepDto> getTestCaseSteps(final TestCaseService service,
                                                    final TestCaseDto testCase) throws IOException {
-        final Response<Scenario> scenarioResponse = testCase.isAutomated()
-                ? service.getScenarioFromRun(testCase.getId()).execute()
-                : service.getScenario(testCase.getId()).execute();
+//        final Response<Scenario> scenarioResponse = testCase.isAutomated()
+//                ? service.getScenarioFromRun(testCase.getId()).execute()
+//                : service.getScenario(testCase.getId()).execute();
+        final Response<Scenario> automatedScenario = service.getScenarioFromRun(testCase.getId()).execute();
+        final Response<Scenario> manualScenario = service.getScenario(testCase.getId()).execute();
+        final Response<Scenario>
+                scenarioResponse = automatedScenario.body() != null
+                && automatedScenario.body().getSteps() != null
+                && automatedScenario.body().getSteps().size() != 0
+                ? automatedScenario : manualScenario;
         if (scenarioResponse.isSuccessful()) {
             return convertSteps(scenarioResponse.body().getSteps());
         }
