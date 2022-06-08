@@ -25,7 +25,7 @@
             <#list data.testCases as testCase>
                 <div class="testcase">
                     <h2>
-                        <small class="text-muted">${testCase.id}</small>
+                        <small class="text-muted">${testCase.id?c}</small>
                         <![CDATA[${testCase.name}]]>
                     </h2>
                     <div class="steps">
@@ -48,7 +48,7 @@
                     <![CDATA[${step.name}]]>
                     <#if step.attachments??>
                         <#list step.attachments as attachment>
-                            <img src="attachments/${testCaseId}/${attachment.name}" class="img-fluid img-thumbnail"/>
+                            <img src="attachments/${testCaseId?c}/${attachment.name}" class="img-fluid img-thumbnail"/>
                         </#list>
                     </#if>
                     <@testCaseSteps testCaseId step.steps level+1/>
