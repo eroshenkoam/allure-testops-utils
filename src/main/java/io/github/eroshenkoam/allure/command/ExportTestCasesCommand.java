@@ -8,11 +8,7 @@ import io.github.eroshenkoam.allure.util.FreemarkerUtil;
 import io.github.eroshenkoam.allure.util.PDFUtil;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseService;
-import io.qameta.allure.ee.client.dto.Attachment;
-import io.qameta.allure.ee.client.dto.Page;
-import io.qameta.allure.ee.client.dto.Scenario;
-import io.qameta.allure.ee.client.dto.Step;
-import io.qameta.allure.ee.client.dto.TestCase;
+import io.qameta.allure.ee.client.dto.*;
 import okhttp3.ResponseBody;
 import picocli.CommandLine;
 import retrofit2.Response;
@@ -21,11 +17,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @CommandLine.Command(
         name = "export-testcases", mixinStandardHelpOptions = true,
@@ -110,8 +102,7 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
 //                : service.getScenario(testCase.getId()).execute();
         final Response<Scenario> automatedScenario = service.getScenarioFromRun(testCase.getId()).execute();
         final Response<Scenario> manualScenario = service.getScenario(testCase.getId()).execute();
-        final Response<Scenario>
-                scenarioResponse = automatedScenario.body() != null
+        final Response<Scenario> scenarioResponse = automatedScenario.body() != null
                 && automatedScenario.body().getSteps() != null
                 && automatedScenario.body().getSteps().size() != 0
                 ? automatedScenario : manualScenario;
