@@ -138,7 +138,10 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
         return new TestCaseDto()
                 .setId(testCase.getId())
                 .setName(testCase.getName())
-                .setAutomated(testCase.getAutomated());
+                .setAutomated(testCase.getAutomated())
+                .setDescription(testCase.getDescription())
+                .setPrecondition(testCase.getPrecondition())
+                .setExpectedResult(testCase.getExpectedResult());
     }
 
     private List<TestCaseStepDto> convertSteps(final List<Step> steps) {
