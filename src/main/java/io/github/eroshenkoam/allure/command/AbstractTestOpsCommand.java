@@ -3,7 +3,7 @@ package io.github.eroshenkoam.allure.command;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import picocli.CommandLine;
 
-public abstract class AbstractTestOpsCommand implements Runnable{
+public abstract class AbstractTestOpsCommand implements Runnable {
 
     @CommandLine.Option(
             names = {"--allure.endpoint"},
