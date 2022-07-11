@@ -50,7 +50,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
     @CommandLine.Option(
             names = {"--allure.audit.after"},
             description = "Rollback all audit changes after this date",
-            defaultValue = "${env:ALLURE_AFTER}",
+            defaultValue = "${env:ALLURE_AUDIT_AFTER}",
             required = true
     )
     protected String allureAuditAfter;

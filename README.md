@@ -70,3 +70,15 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            ghcr.io/eroshenkoam/allure-testops-utils clean-launches
 ```
 
+## Rollback testcases in Allure TestOps
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "ALLURE_PROJECT_ID=2" \
+           -e "ALLURE_AUDIT_AFTER=2022-07-11 10:00:00" \
+           -e "ALLURE_TESTCASES_FILTER=id in [123, 124]" \
+           ghcr.io/eroshenkoam/allure-testops-utils rollback-testcases
+```
+
