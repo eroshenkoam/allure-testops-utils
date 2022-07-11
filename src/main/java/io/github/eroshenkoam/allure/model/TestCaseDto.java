@@ -15,6 +15,9 @@ public class TestCaseDto implements Serializable {
     private long id;
     private String name;
     private boolean automated;
+    private String description;
+    private String precondition;
+    private String expectedResult;
 
     private List<TestCaseStepDto> steps;
 

@@ -28,10 +28,28 @@
                         <small class="text-muted">${testCase.id?c}</small>
                         <![CDATA[${testCase.name}]]>
                     </h2>
+                    <#if testCase.description?has_content>
+                        <div class="description">
+                            <h3>Description</h3>
+                            <![CDATA[${testCase.description}]]>
+                        </div>
+                    </#if>
+                    <#if testCase.precondition?has_content>
+                        <div class="precondition">
+                            <h3>Precondition</h3>
+                            <![CDATA[${testCase.precondition}]]>
+                        </div>
+                    </#if>
                     <div class="steps">
                         <h3>Scenario</h3>
                         <@testCaseSteps testCase.getId() testCase.steps 0/>
                     </div>
+                    <#if testCase.expectedResult?has_content>
+                        <div class="expected-result">
+                            <h3>Expected result</h3>
+                            <![CDATA[${testCase.expectedResult}]]>
+                        </div>
+                    </#if>
                 </div>
             </#list>
         </div>
