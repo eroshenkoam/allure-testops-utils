@@ -151,12 +151,12 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
             Optional.ofNullable(diff.getExpectedResult()).ifPresent(value -> {
                 final String oldValue = value.getOldValue();
                 System.out.printf("For test case [%s] set expected result [%s]%n", testCaseId, oldValue);
-                testCase.setDescription(Optional.ofNullable(oldValue).orElse(""));
+                testCase.setExpectedResult(Optional.ofNullable(oldValue).orElse(""));
             });
             Optional.ofNullable(diff.getPrecondition()).ifPresent(value -> {
                 final String oldValue = value.getOldValue();
                 System.out.printf("For test case [%s] set precondition [%s]%n", testCaseId, oldValue);
-                testCase.setDescription(Optional.ofNullable(oldValue).orElse(""));
+                testCase.setPrecondition(Optional.ofNullable(oldValue).orElse(""));
             });
             service.update(testCase).execute();
         }
