@@ -60,6 +60,8 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.12")
     compileOnly("org.projectlombok:lombok:1.18.12")
 
+    implementation("org.slf4j:slf4j-log4j12:1.7.29")
+
     annotationProcessor("info.picocli:picocli-codegen:4.1.4")
     implementation("info.picocli:picocli:4.1.4")
 
