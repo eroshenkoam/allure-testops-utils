@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -60,7 +61,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
             names = {"--allure.audit.author"},
             description = "Rollback all audit changes from user author",
             defaultValue = "${env:ALLURE_AUDIT_AUTHOR}",
-            required = true
+            required = false
     )
     protected String allureAuditAuthor;
 
@@ -95,7 +96,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                 .collect(Collectors.toList());
         for (TestCaseAuditEntry entry : auditPages) {
             System.out.printf("Found audit entry [%s] at [%s]%n", entry.getId(), dateFormat.print(entry.getTimestamp()));
-            if (entry.getUsername().equals(allureAuditAuthor)) {
+            if (Objects.isNull(allureAuditAfter) || entry.getUsername().equals(allureAuditAuthor)) {
                 for (TestCaseAuditEntryData data : entry.getData()) {
                     for (AuditAction action : actions) {
                         if (action.isApplicable(entry.getActionType(), data)) {
