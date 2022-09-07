@@ -11,6 +11,7 @@ import io.qameta.allure.ee.client.dto.TestCase;
 import io.qameta.allure.ee.client.dto.TestCaseAuditEntry;
 import io.qameta.allure.ee.client.dto.TestCaseAuditEntryData;
 import io.qameta.allure.ee.client.dto.TestCaseAuditType;
+import io.qameta.allure.ee.client.dto.TestTag;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -55,6 +56,14 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
     )
     protected String allureAuditAfter;
 
+    @CommandLine.Option(
+            names = {"--allure.audit.author"},
+            description = "Rollback all audit changes from user author",
+            defaultValue = "${env:ALLURE_AUDIT_AUTHOR}",
+            required = true
+    )
+    protected String allureAuditAuthor;
+
     @Override
     public void runUnsafe(final ServiceBuilder builder) throws Exception {
         final TestCaseService service = builder.create(TestCaseService.class);
@@ -75,7 +84,9 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
         final List<AuditAction> actions = Arrays.asList(
                 new RollbackTestCaseDataAction(),
                 new RollbackCustomFieldDeleteAction(),
-                new RollbackCustomFieldInsertAction()
+                new RollbackCustomFieldInsertAction(),
+                new RollbackTagsDeleteAction(),
+                new RollbackTagsInsertAction()
         );
 
         final List<TestCaseAuditEntry> auditPages = service.getTestCaseAudit(testCaseId, 0, 50)
@@ -84,10 +95,12 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                 .collect(Collectors.toList());
         for (TestCaseAuditEntry entry : auditPages) {
             System.out.printf("Found audit entry [%s] at [%s]%n", entry.getId(), dateFormat.print(entry.getTimestamp()));
-            for (TestCaseAuditEntryData data : entry.getData()) {
-                for (AuditAction action : actions) {
-                    if (action.isApplicable(entry.getActionType(), data)) {
-                        action.apply(builder, testCaseId, entry.getActionType(), data);
+            if (entry.getUsername().equals(allureAuditAuthor)) {
+                for (TestCaseAuditEntryData data : entry.getData()) {
+                    for (AuditAction action : actions) {
+                        if (action.isApplicable(entry.getActionType(), data)) {
+                            action.apply(builder, testCaseId, entry.getActionType(), data);
+                        }
                     }
                 }
             }
@@ -215,4 +228,55 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
         }
     }
 
+    public static class RollbackTagsDeleteAction implements AuditAction {
+
+        @Override
+        public boolean isApplicable(final TestCaseAuditType type, final TestCaseAuditEntryData data) {
+            return TestCaseAuditType.DELETE.equals(type) && "test_case_test_tag".equals(data.getType());
+        }
+
+        @Override
+        public void apply(final ServiceBuilder builder,
+                          final Long testCaseId,
+                          final TestCaseAuditType type,
+                          final TestCaseAuditEntryData data) throws Exception {
+            final TestCaseService service = builder.create(TestCaseService.class);
+            final TestCaseAssociationDiff diff = (TestCaseAssociationDiff) data.getDiff();
+            final TestCase testCase = service.findById(testCaseId).execute().body();
+            final Set<Long> idsToAdd = diff.getIds().getOldValue();
+            System.out.printf("For test case [%s] add tags [%s]%n", testCaseId, idsToAdd);
+
+            final Set<Long> newIds = testCase.getTags().stream()
+                    .map(TestTag::getId).collect(Collectors.toSet());
+            newIds.addAll(idsToAdd);
+            testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
+            service.update(testCase).execute();
+        }
+    }
+
+    public static class RollbackTagsInsertAction implements AuditAction {
+
+        @Override
+        public boolean isApplicable(final TestCaseAuditType type, final TestCaseAuditEntryData data) {
+            return TestCaseAuditType.INSERT.equals(type) && "test_case_test_tag".equals(data.getType());
+        }
+
+        @Override
+        public void apply(final ServiceBuilder builder,
+                          final Long testCaseId,
+                          final TestCaseAuditType type,
+                          final TestCaseAuditEntryData data) throws Exception {
+            final TestCaseService service = builder.create(TestCaseService.class);
+            final TestCaseAssociationDiff diff = (TestCaseAssociationDiff) data.getDiff();
+            final TestCase testCase = service.findById(testCaseId).execute().body();
+            final Set<Long> idsToRemove = diff.getIds().getNewValue();
+            System.out.printf("For test case [%s] remove tags [%s]%n", testCaseId, idsToRemove);
+
+            final Set<Long> newIds = testCase.getTags().stream()
+                    .map(TestTag::getId).collect(Collectors.toSet());
+            newIds.removeAll(idsToRemove);
+            testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
+            service.update(testCase).execute();
+        }
+    }
 }
