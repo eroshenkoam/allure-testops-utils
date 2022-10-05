@@ -1,5 +1,6 @@
 package io.github.eroshenkoam.allure;
 
+import io.github.eroshenkoam.allure.command.CleanIntegrationsCommand;
 import io.github.eroshenkoam.allure.command.CrowdSyncGroupsCommand;
 import io.github.eroshenkoam.allure.command.ExportTestCasesCommand;
 import io.github.eroshenkoam.allure.command.GitlabSyncGroupsCommand;
@@ -17,7 +18,8 @@ import picocli.CommandLine;
                 LdapSyncGroupsCommand.class,
                 LaunchCleanCommand.class,
                 ExportTestCasesCommand.class,
-                RollbackTestCasesCommand.class
+                RollbackTestCasesCommand.class,
+                CleanIntegrationsCommand.class
         }
 )
 public class MainCommand implements Runnable{
