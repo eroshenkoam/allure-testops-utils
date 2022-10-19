@@ -1,5 +1,15 @@
 # Allure TestOps Utils
 
+## Insecure
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "ALLURE_INSECURE=true" \
+           ...
+```
+
 ## Export information from Allure TestOps
 
 ### Test Cases
