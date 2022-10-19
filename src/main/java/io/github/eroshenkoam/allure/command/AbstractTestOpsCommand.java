@@ -26,6 +26,13 @@ public abstract class AbstractTestOpsCommand implements Runnable {
     )
     protected String allurePassword;
 
+    @CommandLine.Option(
+            names = {"--allure.insecure"},
+            description = "Allure TestOps insecure",
+            defaultValue = "${env:ALLURE_INSECURE}"
+    )
+    protected boolean allureInsecure;
+
     public abstract void runUnsafe(final ServiceBuilder builder) throws Exception;
 
     @Override
@@ -40,6 +47,7 @@ public abstract class AbstractTestOpsCommand implements Runnable {
 
     protected ServiceBuilder getAllureServiceBuilder() {
         return new ServiceBuilder(allureEndpoint)
+                .insecure(allureInsecure)
                 .authBasic(allureUsername, allurePassword);
     }
 
