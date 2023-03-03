@@ -67,6 +67,23 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "LDAP_GROUPROLEATTRIBUTE=cn" \
            ghcr.io/eroshenkoam/allure-testops-utils sync-ldap-groups
 ```
+## Disable users in Allure TestOps
+
+### Ldap -> Allure TestOps
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "LDAP_URL=ldap://localhost:389/dc=springframework,dc=org" \
+           -e "LDAP_USERDN=uid=admin,ou=people,dc=springframework,dc=org" \
+           -e "LDAP_PASSWORD=admin" \
+           -e "LDAP_UIDATTRIBUTE=uid" \
+           -e "LDAP_USERSEARCHBASE=ou=people" \
+           -e "LDAP_USERSEARCHFILTER=(&(uid={0})(objectClass=person))" \
+           -e "LDAP_DISABLEDATTRIBUTE=accountDisabled" \
+           ghcr.io/eroshenkoam/allure-testops-utils disable-ldap-users
+```
 
 ## Delete launches in Allure TestOps
 
