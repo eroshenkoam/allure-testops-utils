@@ -3,10 +3,7 @@ package io.github.eroshenkoam.allure.command;
 import io.qameta.allure.ee.client.AccountService;
 import io.qameta.allure.ee.client.GroupService;
 import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.dto.Account;
-import io.qameta.allure.ee.client.dto.Group;
-import io.qameta.allure.ee.client.dto.GroupUser;
-import io.qameta.allure.ee.client.dto.Page;
+import io.qameta.allure.ee.client.dto.*;
 import picocli.CommandLine;
 import retrofit2.Response;
 
@@ -37,28 +34,37 @@ public abstract class AbstractSyncGroupsCommand extends AbstractTestOpsCommand {
 
     private void syncAllureGroups(final Map<String, List<String>> groupUsers,
                                   final GroupService groupService) throws IOException {
-        final Response<List<Group>> groupsResponse = groupService.findALl().execute();
+        final Response<Page<Group>> groupsResponse = groupService.find("", 0, 1000).execute();
         if (!groupsResponse.isSuccessful()) {
             throw new RuntimeException(groupsResponse.message());
         }
-        final List<Group> groups = groupsResponse.body();
+        final Page<Group> groups = groupsResponse.body();
 
         for (Map.Entry<String, List<String>> entry : groupUsers.entrySet()) {
             final String name = entry.getKey();
             final List<String> usernames = entry.getValue();
 
-            final Optional<Group> existing = groups.stream()
+            final Optional<Group> existing = groups.getContent().stream()
                     .filter(group -> group.getName().equals(name))
                     .findAny();
 
             if (existing.isPresent()) {
                 final Group group = existing.get();
-                for (GroupUser user : group.getUsers()) {
-                    groupService.removeUser(user).execute();
+                final Response<Page<GroupUser>> groupUsersResponse = groupService.getUsers(group.getId()).execute();
+                if (!groupUsersResponse.isSuccessful()) {
+                    throw new RuntimeException(groupUsersResponse.message());
                 }
-
-                for (GroupUser user : toGroupUsers(group.getId(), usernames)) {
-                    groupService.addUser(user).execute();
+                for (GroupUser user : groupUsersResponse.body().getContent()) {
+                    final Response<Void> removeResponse = groupService
+                            .removeUser(group.getId(), user.getUsername()).execute();
+                    if (!removeResponse.isSuccessful()) {
+                        throw new RuntimeException(removeResponse.message());
+                    }
+                }
+                final GroupUserAdd users = new GroupUserAdd().setUsernames(usernames);
+                final Response<Void> addResponse = groupService.addUsers(group.getId(), users).execute();
+                if (!addResponse.isSuccessful()) {
+                    throw new RuntimeException(addResponse.message());
                 }
             } else {
                 final Group group = new Group()
@@ -68,19 +74,15 @@ public abstract class AbstractSyncGroupsCommand extends AbstractTestOpsCommand {
                     throw new RuntimeException(createdResponse.message());
                 }
                 final Group created = createdResponse.body();
-                for (GroupUser user : toGroupUsers(created.getId(), usernames)) {
-                    groupService.addUser(user).execute();
+                final GroupUserAdd users = new GroupUserAdd().setUsernames(usernames);
+                final Response<Void> addResponse = groupService.addUsers(created.getId(), users).execute();
+                if (!addResponse.isSuccessful()) {
+                    throw new RuntimeException(addResponse.message());
                 }
             }
 
         }
 
-    }
-
-    private Set<GroupUser> toGroupUsers(final Long groupId, final List<String> users) {
-        return users.stream()
-                .map(user -> new GroupUser().setGroupId(groupId).setUsername(user))
-                .collect(Collectors.toSet());
     }
 
     private List<String> getAllureUsernames(final AccountService accountService) throws IOException {
