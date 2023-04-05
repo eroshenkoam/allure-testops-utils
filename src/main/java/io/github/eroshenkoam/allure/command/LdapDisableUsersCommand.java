@@ -1,7 +1,6 @@
 package io.github.eroshenkoam.allure.command;
 
 import io.qameta.allure.ee.client.AccountService;
-import io.qameta.allure.ee.client.GroupService;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.dto.Account;
 import io.qameta.allure.ee.client.dto.Authority;
@@ -14,7 +13,6 @@ import org.springframework.ldap.core.LdapTemplate;
 import org.springframework.ldap.core.support.LdapContextSource;
 import org.springframework.ldap.query.LdapQueryBuilder;
 import picocli.CommandLine;
-import retrofit2.Call;
 import retrofit2.Response;
 
 import java.io.IOException;
@@ -63,11 +61,18 @@ public class LdapDisableUsersCommand extends AbstractTestOpsCommand {
     protected String uidAttribute;
 
     @CommandLine.Option(
-            names = {"--ldap.disabledAttribute"},
-            description = "Ldap disabled attribute",
-            defaultValue = "${env:LDAP_DISABLEDATTRIBUTE}"
+            names = {"--ldap.disabledAttributeName"},
+            description = "Ldap disabled attribute name",
+            defaultValue = "${env:LDAP_DISABLEDATTRIBUTENAME}"
     )
-    protected String disableAttribute;
+    protected String disableAttributeName;
+
+    @CommandLine.Option(
+            names = {"--ldap.disabledAttributeValue"},
+            description = "Ldap disabled attribute value",
+            defaultValue = "${env:LDAP_DISABLEDATTRIBUTEVALUE}"
+    )
+    protected String disableAttributeValue;
 
     @CommandLine.Option(
             names = {"--ldap.userSearchBase"},
@@ -112,7 +117,18 @@ public class LdapDisableUsersCommand extends AbstractTestOpsCommand {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .map(DirContextOperations.class::cast)
-                .filter(d -> d.attributeExists(disableAttribute))
+                .filter(d -> {
+                    final boolean attributeExists = d.attributeExists(disableAttributeName);
+                    if (attributeExists) {
+                        if (Objects.isNull(disableAttributeValue)) {
+                            return true;
+                        } else {
+                            final String attributeValue = d.getStringAttribute(disableAttributeName);
+                            return disableAttributeValue.equals(attributeValue);
+                        }
+                    }
+                    return false;
+                })
                 .map(d -> d.getStringAttribute(uidAttribute))
                 .collect(Collectors.toList());
     }
