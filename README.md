@@ -81,7 +81,8 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "LDAP_UIDATTRIBUTE=uid" \
            -e "LDAP_USERSEARCHBASE=ou=people" \
            -e "LDAP_USERSEARCHFILTER=(&(uid={0})(objectClass=person))" \
-           -e "LDAP_DISABLEDATTRIBUTE=accountDisabled" \
+           -e "LDAP_DISABLEDATTRIBUTENAME=accountDisabled" \
+           -e "LDAP_DISABLEDATTRIBUTEVALUE=true" \
            ghcr.io/eroshenkoam/allure-testops-utils disable-ldap-users
 ```
 
