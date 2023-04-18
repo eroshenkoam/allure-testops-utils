@@ -101,36 +101,46 @@ public class LdapDisableUsersCommand extends AbstractTestOpsCommand {
         System.out.print("All users disabled successfully\n");
     }
 
-    public List<String> getUsersForDisable(final List<String> usernames) {
+    public List<String> getUsersForDisable(final List<String> usernames) throws Exception {
+        final List<String> usersForDisable = new ArrayList<>();
         final LdapTemplate ldapTemplate = createTemplate();
-        return usernames.stream()
-                .map(username -> {
-                    try {
-                        final DirContextOperations context = ldapTemplate.searchForContext(
-                                LdapQueryBuilder.query().base(userSearchBase).filter(userSearchFilter, username)
-                        );
-                        return Optional.of(context);
-                    } catch (IncorrectResultSizeDataAccessException | NameNotFoundException e) {
-                        return Optional.empty();
-                    }
-                })
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(DirContextOperations.class::cast)
-                .filter(d -> {
-                    final boolean attributeExists = d.attributeExists(disableAttributeName);
+        for (String username : usernames) {
+            System.out.printf("Looking for [%s] in ldap\n", username);
+            try {
+                final DirContextOperations context = ldapTemplate.searchForContext(
+                        LdapQueryBuilder.query().base(userSearchBase).filter(userSearchFilter, username)
+                );
+                if (Objects.nonNull(context)) {
+                    System.out.printf("Found information for [%s] in ldap\n", username);
+                    final boolean attributeExists = context.attributeExists(disableAttributeName);
                     if (attributeExists) {
                         if (Objects.isNull(disableAttributeValue)) {
-                            return true;
+                            System.out.printf("User [%s] should be disabled: attribute exists\n", username);
+                            usersForDisable.add(username);
                         } else {
-                            final String attributeValue = d.getStringAttribute(disableAttributeName);
-                            return disableAttributeValue.equals(attributeValue);
+                            final String attributeValue = context.getStringAttribute(disableAttributeName);
+                            if (disableAttributeValue.equals(attributeValue)) {
+                                System.out.printf(
+                                        "User [%s] should be disabled: attribute value match [%s]\n",
+                                        username, disableAttributeValue
+                                );
+                                usersForDisable.add(username);
+                            } else {
+                                System.out.printf(
+                                        "User [%s] attribute [%s] value [%s] not match [%s]\n",
+                                        username, disableAttributeName, attributeValue, disableAttributeValue
+                                );
+                            }
                         }
+                    } else {
+                        System.out.printf("User [%s] have no attribute [%s]\n", username, disableAttributeName);
                     }
-                    return false;
-                })
-                .map(d -> d.getStringAttribute(uidAttribute))
-                .collect(Collectors.toList());
+                }
+            } catch (IncorrectResultSizeDataAccessException | NameNotFoundException e) {
+                System.out.printf("User [%s] error: %s\n", username, e.getMessage());
+            }
+        }
+        return usersForDisable;
     }
 
     private void disableUsers(final List<String> users, final AccountService service) throws IOException {
@@ -160,7 +170,7 @@ public class LdapDisableUsersCommand extends AbstractTestOpsCommand {
 
     private List<String> getAllureUsernames(final AccountService accountService) throws IOException {
 
-        final Response<Page<Account>> accountsResponse = accountService.getAccounts().execute();
+        final Response<Page<Account>> accountsResponse = accountService.getAccounts("", 0, 1000).execute();
         if (!accountsResponse.isSuccessful()) {
             throw new RuntimeException(accountsResponse.message());
         }
