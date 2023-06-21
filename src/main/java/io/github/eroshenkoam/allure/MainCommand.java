@@ -11,6 +11,7 @@ import picocli.CommandLine;
                 GitlabSyncGroupsCommand.class,
                 LdapSyncGroupsCommand.class,
                 LdapDisableUsersCommand.class,
+                FileDisableUsersCommand.class,
                 LaunchCleanCommand.class,
                 ExportTestCasesCommand.class,
                 RollbackTestCasesCommand.class
