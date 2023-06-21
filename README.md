@@ -78,12 +78,22 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "LDAP_URL=ldap://localhost:389/dc=springframework,dc=org" \
            -e "LDAP_USERDN=uid=admin,ou=people,dc=springframework,dc=org" \
            -e "LDAP_PASSWORD=admin" \
-           -e "LDAP_UIDATTRIBUTE=uid" \
            -e "LDAP_USERSEARCHBASE=ou=people" \
            -e "LDAP_USERSEARCHFILTER=(&(uid={0})(objectClass=person))" \
            -e "LDAP_DISABLEDATTRIBUTENAME=accountDisabled" \
            -e "LDAP_DISABLEDATTRIBUTEVALUE=true" \
            ghcr.io/eroshenkoam/allure-testops-utils disable-ldap-users
+```
+
+### File -> Allure TestOps
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "USERS_FILE=/data/users.txt" \
+           -v "users.txt:/data/users.txt"
+           ghcr.io/eroshenkoam/allure-testops-utils disable-file-users
 ```
 
 ## Delete launches in Allure TestOps
