@@ -91,7 +91,7 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
 docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "ALLURE_USERNAME=admin" \
            -e "ALLURE_PASSWORD=admin" \
-           -e "USERS_FILE=/data/users.txt" \
+           -e "USER_FILE=/data/users.txt" \
            -v "users.txt:/data/users.txt"
            ghcr.io/eroshenkoam/allure-testops-utils disable-file-users
 ```
