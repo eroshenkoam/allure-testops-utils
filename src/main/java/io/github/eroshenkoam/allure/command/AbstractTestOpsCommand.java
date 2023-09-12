@@ -1,7 +1,15 @@
 package io.github.eroshenkoam.allure.command;
 
 import io.qameta.allure.ee.client.ServiceBuilder;
+import io.qameta.allure.ee.client.TestCaseService;
+import io.qameta.allure.ee.client.dto.Page;
+import io.qameta.allure.ee.client.dto.TestCase;
 import picocli.CommandLine;
+import retrofit2.Response;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class AbstractTestOpsCommand implements Runnable {
 
@@ -49,6 +57,26 @@ public abstract class AbstractTestOpsCommand implements Runnable {
         return new ServiceBuilder(allureEndpoint)
                 .insecure(allureInsecure)
                 .authBasic(allureUsername, allurePassword);
+    }
+
+    protected List<Long> getTestCases(final TestCaseService service,
+                                      final Long projectId,
+                                      final String filter) throws IOException {
+        final List<Long> testCases = new ArrayList<>();
+        Page<TestCase> current = new Page<TestCase>().setNumber(-1);
+        do {
+            final Response<Page<TestCase>> response = service
+                    .findByRql(projectId, filter, current.getNumber() + 1, 100)
+                    .execute();
+            if (!response.isSuccessful()) {
+                throw new RuntimeException("Can not find launches: " + response.message());
+            }
+            current = response.body();
+            for (TestCase item : current.getContent()) {
+                testCases.add(item.getId());
+            }
+        } while (current.getNumber() < current.getTotalPages());
+        return testCases;
     }
 
 }

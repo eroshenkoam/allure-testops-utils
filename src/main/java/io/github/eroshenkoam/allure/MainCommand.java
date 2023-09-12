@@ -14,6 +14,7 @@ import picocli.CommandLine;
                 FileDisableUsersCommand.class,
                 LaunchCleanCommand.class,
                 ExportTestCasesCommand.class,
+                MigrateExpectedResultsCommand.class,
                 RollbackTestCasesCommand.class
         }
 )
