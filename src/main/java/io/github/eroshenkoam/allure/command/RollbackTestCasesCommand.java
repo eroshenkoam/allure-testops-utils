@@ -6,7 +6,6 @@ import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.audit.TestCaseAssociationDiff;
 import io.qameta.allure.ee.client.audit.TestCaseDiff;
 import io.qameta.allure.ee.client.dto.CustomFieldValue;
-import io.qameta.allure.ee.client.dto.Page;
 import io.qameta.allure.ee.client.dto.TestCase;
 import io.qameta.allure.ee.client.dto.TestCaseAuditEntry;
 import io.qameta.allure.ee.client.dto.TestCaseAuditEntryData;
@@ -16,10 +15,7 @@ import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import picocli.CommandLine;
-import retrofit2.Response;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -70,7 +66,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
         final TestCaseService service = builder.create(TestCaseService.class);
         System.out.printf("Rollback testcases from project [%s] filter [%s]\n", allureProjectId, allureTestCaseFilter);
 
-        final List<Long> ids = getTestCases(service);
+        final List<Long> ids = getTestCases(service, allureProjectId, allureTestCaseFilter);
         for (Long id : ids) {
             rollBackTestCase(builder, id);
         }
@@ -106,24 +102,6 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                 }
             }
         }
-    }
-
-    private List<Long> getTestCases(final TestCaseService service) throws IOException {
-        final List<Long> testCases = new ArrayList<>();
-        Page<TestCase> current = new Page<TestCase>().setNumber(-1);
-        do {
-            final Response<Page<TestCase>> response = service
-                    .findByRql(allureProjectId, allureTestCaseFilter, current.getNumber() + 1, 100)
-                    .execute();
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("Can not find launches: " + response.message());
-            }
-            current = response.body();
-            for (TestCase item : current.getContent()) {
-                testCases.add(item.getId());
-            }
-        } while (current.getNumber() < current.getTotalPages());
-        return testCases;
     }
 
     public interface AuditAction {
