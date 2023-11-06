@@ -74,5 +74,6 @@ dependencies {
 
     implementation("joda-time:joda-time:2.10.14")
 
-    implementation("io.qameta.allure:allure-ee-client:3.45.3")
+    implementation("io.qameta.allure:allure-model:2.24.0")
+    implementation("io.qameta.allure:allure-ee-client:3.46.0")
 }

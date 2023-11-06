@@ -3,8 +3,8 @@ package io.github.eroshenkoam.allure.command;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseService;
-import io.qameta.allure.ee.client.dto.Scenario;
-import io.qameta.allure.ee.client.dto.Step;
+import io.qameta.allure.ee.client.dto.TestCaseScenario;
+import io.qameta.allure.ee.client.dto.TestCaseStep;
 import picocli.CommandLine;
 import retrofit2.Response;
 
@@ -64,11 +64,11 @@ public class MigrateExpectedResultsCommand extends AbstractTestOpsCommand {
     public void migrateTestCaseScenario(final TestCaseService service,
                                         final Long testCaseId) throws IOException {
         System.out.printf("Migrating scenario for test case: %s\n", testCaseId);
-        final Response<Scenario> scenarioResponse = service.getScenario(testCaseId).execute();
+        final Response<TestCaseScenario> scenarioResponse = service.getScenario(testCaseId).execute();
         if (!scenarioResponse.isSuccessful()) {
             throw new RuntimeException(scenarioResponse.message());
         }
-        final Scenario oldScenario = scenarioResponse.body();
+        final TestCaseScenario oldScenario = scenarioResponse.body();
         if (Objects.isNull(oldScenario) || Objects.isNull(oldScenario.getSteps())) {
             System.out.printf("Skipping migration for test case with empty scenario: %s\n", testCaseId);
             return;
@@ -82,7 +82,7 @@ public class MigrateExpectedResultsCommand extends AbstractTestOpsCommand {
         Files.write(scenarioPath, scenarioContent.getBytes(StandardCharsets.UTF_8));
         System.out.printf("Scenario saved for test case: %s\n", testCaseId);
 
-        final Scenario newScenario = migrateScenario(oldScenario);
+        final TestCaseScenario newScenario = migrateScenario(oldScenario);
         System.out.printf("Scenario converted for test case: %s\n", testCaseId);
 
         final Response<Void> updateResponse = service.setScenario(testCaseId, newScenario).execute();
@@ -92,20 +92,20 @@ public class MigrateExpectedResultsCommand extends AbstractTestOpsCommand {
         System.out.printf("Scenario migrated successfully for test case: %s\n", testCaseId);
     }
 
-    private boolean isScenarioContainsOnlyExpectedResults(final Scenario scenario) {
+    private boolean isScenarioContainsOnlyExpectedResults(final TestCaseScenario scenario) {
         if (Objects.nonNull(scenario) && Objects.nonNull(scenario.getSteps())) {
             return scenario.getSteps().stream()
                     .allMatch(s -> {
                         if (Objects.nonNull(s.getExpectedResult())) {
                             return false;
                         }
-                        final List<Step> subSteps = s.getSteps();
+                        final List<TestCaseStep> subSteps = s.getSteps();
                         if(Objects.isNull(subSteps) || s.getSteps().size() == 0) {
                             return true;
                         }
                         if (subSteps.size() == 1) {
-                            final Step expectedResult = subSteps.get(0);
-                            final List<Step> expectedResultSubSteps = expectedResult.getSteps();
+                            final TestCaseStep expectedResult = subSteps.get(0);
+                            final List<TestCaseStep> expectedResultSubSteps = expectedResult.getSteps();
                             return Objects.isNull(expectedResultSubSteps) || expectedResultSubSteps.size() == 0;
                         }
                         return false;
@@ -114,8 +114,8 @@ public class MigrateExpectedResultsCommand extends AbstractTestOpsCommand {
         return false;
     }
 
-    private Scenario migrateScenario(final Scenario oldScenario) {
-        final Scenario newScenario = new Scenario();
+    private TestCaseScenario migrateScenario(final TestCaseScenario oldScenario) {
+        final TestCaseScenario newScenario = new TestCaseScenario();
         newScenario.setSteps(new ArrayList<>());
         oldScenario.getSteps().stream()
                 .map(this::migrateStep)
@@ -123,15 +123,15 @@ public class MigrateExpectedResultsCommand extends AbstractTestOpsCommand {
         return newScenario;
     }
 
-    private Step migrateStep(final Step oldStep) {
-        final Step stepWithExpectedResult = new Step()
+    private TestCaseStep migrateStep(final TestCaseStep oldStep) {
+        final TestCaseStep stepWithExpectedResult = new TestCaseStep()
                 .setSteps(new ArrayList<>())
                 .setAttachments(new ArrayList<>());
         stepWithExpectedResult.setName(oldStep.getName());
         Optional.ofNullable(oldStep.getAttachments())
                 .ifPresent(stepWithExpectedResult.getAttachments()::addAll);
         if (Objects.nonNull(oldStep.getSteps()) && oldStep.getSteps().size() == 1) {
-            final Step subStep = oldStep.getSteps().get(0);
+            final TestCaseStep subStep = oldStep.getSteps().get(0);
             stepWithExpectedResult.setExpectedResult(subStep.getName());
             Optional.ofNullable(subStep.getAttachments())
                     .ifPresent(stepWithExpectedResult.getAttachments()::addAll);

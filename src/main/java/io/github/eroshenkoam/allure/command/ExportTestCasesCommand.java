@@ -55,7 +55,7 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
 
         final List<TestCaseDto> testCases = getTestCases(service);
         for (TestCaseDto testCase : testCases) {
-            downloadAttachments(service, testCase.getId());
+            downloadTestCaseAttachments(service, testCase.getId());
         }
 
         final TestCasesDto data = new TestCasesDto()
@@ -97,39 +97,36 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
 
     private List<TestCaseStepDto> getTestCaseSteps(final TestCaseService service,
                                                    final TestCaseDto testCase) throws IOException {
-//        final Response<Scenario> scenarioResponse = testCase.isAutomated()
-//                ? service.getScenarioFromRun(testCase.getId()).execute()
-//                : service.getScenario(testCase.getId()).execute();
-        final Response<Scenario> automatedScenario = service.getScenarioFromRun(testCase.getId()).execute();
-        final Response<Scenario> manualScenario = service.getScenario(testCase.getId()).execute();
-        final Response<Scenario> scenarioResponse = automatedScenario.body() != null
-                && automatedScenario.body().getSteps() != null
-                && automatedScenario.body().getSteps().size() != 0
-                ? automatedScenario : manualScenario;
-        if (scenarioResponse.isSuccessful()) {
-            return convertSteps(scenarioResponse.body().getSteps());
+        final Response<TestCaseScenario> automatedTestCaseScenario = service.getScenarioFromRun(testCase.getId()).execute();
+        final Response<TestCaseScenario> manualTestCaseScenario = service.getScenario(testCase.getId()).execute();
+        final Response<TestCaseScenario> TestCaseScenarioResponse = automatedTestCaseScenario.body() != null
+                && automatedTestCaseScenario.body().getSteps() != null
+                && automatedTestCaseScenario.body().getSteps().size() != 0
+                ? automatedTestCaseScenario : manualTestCaseScenario;
+        if (TestCaseScenarioResponse.isSuccessful()) {
+            return convertSteps(TestCaseScenarioResponse.body().getSteps());
         }
         return new ArrayList<>();
     }
 
-    private void downloadAttachments(final TestCaseService service, final Long testCaseId) throws IOException {
-        System.out.printf("Download attachments for test case [%s]\n", testCaseId);
+    private void downloadTestCaseAttachments(final TestCaseService service, final Long testCaseId) throws IOException {
+        System.out.printf("Download TestCaseAttachments for test case [%s]\n", testCaseId);
 
-        final Path baseAttachmentsPath = outputPath.resolve("attachments").resolve(testCaseId.toString());
-        Files.createDirectories(baseAttachmentsPath);
+        final Path baseTestCaseAttachmentsPath = outputPath.resolve("TestCaseAttachments").resolve(testCaseId.toString());
+        Files.createDirectories(baseTestCaseAttachmentsPath);
 
-        final Response<Page<Attachment>> attachmentsResponse = service.getAttachments(testCaseId, 0, 100).execute();
-        if (!attachmentsResponse.isSuccessful()) {
+        final Response<Page<TestCaseAttachment>> TestCaseAttachmentsResponse = service.getAttachments(testCaseId, 0, 100).execute();
+        if (!TestCaseAttachmentsResponse.isSuccessful()) {
             return;
         }
-        final List<TestCaseAttachmentDto> attachments = convertAttachments(attachmentsResponse.body().getContent());
-        for (TestCaseAttachmentDto attachment : attachments) {
-            System.out.printf("Download attachment [%s] for test case [%s]\n", attachment.getName(), testCaseId);
-            final Path attachmentPath = baseAttachmentsPath.resolve(prepareAttachmentName(attachment.getName()));
-            final Response<ResponseBody> attachmentResponse = service
-                    .getAttachmentContent(attachment.getId()).execute();
-            if (attachmentResponse.isSuccessful()) {
-                Files.write(attachmentPath, attachmentResponse.body().bytes());
+        final List<TestCaseAttachmentDto> TestCaseAttachments = convertTestCaseAttachments(TestCaseAttachmentsResponse.body().getContent());
+        for (TestCaseAttachmentDto TestCaseAttachment : TestCaseAttachments) {
+            System.out.printf("Download TestCaseAttachment [%s] for test case [%s]\n", TestCaseAttachment.getName(), testCaseId);
+            final Path TestCaseAttachmentPath = baseTestCaseAttachmentsPath.resolve(prepareTestCaseAttachmentName(TestCaseAttachment.getName()));
+            final Response<ResponseBody> TestCaseAttachmentResponse = service
+                    .getAttachmentContent(TestCaseAttachment.getId()).execute();
+            if (TestCaseAttachmentResponse.isSuccessful()) {
+                Files.write(TestCaseAttachmentPath, TestCaseAttachmentResponse.body().bytes());
             }
         }
     }
@@ -144,13 +141,13 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
                 .setExpectedResult(testCase.getExpectedResult());
     }
 
-    private List<TestCaseStepDto> convertSteps(final List<Step> steps) {
+    private List<TestCaseStepDto> convertSteps(final List<TestCaseStep> steps) {
         final List<TestCaseStepDto> convertedList = new ArrayList<>();
         if (Objects.nonNull(steps)) {
             steps.forEach(step -> {
                 final TestCaseStepDto convertedItem = new TestCaseStepDto()
                         .setName(step.getName())
-                        .setAttachments(convertAttachments(step.getAttachments()));
+                        .setAttachments(convertTestCaseAttachments(step.getAttachments()));
                 convertedItem.setSteps(convertSteps(step.getSteps()));
                 convertedList.add(convertedItem);
             });
@@ -158,26 +155,26 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
         return convertedList;
     }
 
-    private List<TestCaseAttachmentDto> convertAttachments(final List<Attachment> attachments) {
+    private List<TestCaseAttachmentDto> convertTestCaseAttachments(final List<TestCaseAttachment> TestCaseAttachments) {
         final List<TestCaseAttachmentDto> convertedList = new ArrayList<>();
-        if (Objects.nonNull(attachments)) {
-            attachments.stream().filter(this::filterAttachment).forEach(attachment -> {
+        if (Objects.nonNull(TestCaseAttachments)) {
+            TestCaseAttachments.stream().filter(this::filterTestCaseAttachment).forEach(TestCaseAttachment -> {
                 final TestCaseAttachmentDto convertedItem = new TestCaseAttachmentDto()
-                        .setId(attachment.getId())
-                        .setName(prepareAttachmentName(attachment.getName()))
-                        .setContentType(attachment.getContentType())
-                        .setContentLength(attachment.getContentLength());
+                        .setId(TestCaseAttachment.getId())
+                        .setName(prepareTestCaseAttachmentName(TestCaseAttachment.getName()))
+                        .setContentType(TestCaseAttachment.getContentType())
+                        .setContentLength(TestCaseAttachment.getContentLength());
                 convertedList.add(convertedItem);
             });
         }
         return convertedList;
     }
 
-    private boolean filterAttachment(final Attachment attachment) {
-        return attachment.getContentType().equals("image/png");
+    private boolean filterTestCaseAttachment(final TestCaseAttachment TestCaseAttachment) {
+        return TestCaseAttachment.getContentType().equals("image/png");
     }
 
-    private String prepareAttachmentName(final String name) {
+    private String prepareTestCaseAttachmentName(final String name) {
         return name.replace(" ", "_");
     }
 }
