@@ -38,6 +38,18 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            ghcr.io/eroshenkoam/allure-testops-utils export-testcases
 ```
 
+### Test Results
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "ALLURE_PROJECT_ID=1" \
+           -e "ALLURE_RESULTS_FILTER=launch = 15" \
+           -v "$PWD/output:/opt/allure-testops/output" \
+           ghcr.io/eroshenkoam/allure-testops-utils export-testresults
+```
+
 ## Sync auth groups with Allure TestOps
 
 ### Atlassian Crowd -> Allure TestOps
