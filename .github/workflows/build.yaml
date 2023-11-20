@@ -18,7 +18,9 @@ jobs:
           java-version: '17'
           distribution: 'graalvm'
       - run: ./gradlew build
-      - run: ./gradlew nativeCompile
+      - run: | 
+          ./gradlew nativeCompile
+          ls -al ./build/native/nativeCompile/
       - run: ./gradlew prepareDockerfile
       - uses: docker/build-push-action@v2
         with:
