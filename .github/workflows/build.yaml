@@ -25,3 +25,8 @@ jobs:
           push: false
           context: build/docker
           tags: ghcr.io/eroshenkoam/allure-testops-utils
+        - name: 'Upload Artifact'
+      - uses: actions/upload-artifact@v3
+        with:
+          name: allure-testops-utils
+          retention-days: 5
