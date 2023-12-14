@@ -19,7 +19,6 @@ jobs:
           distribution: 'graalvm'
       - run: ./gradlew build
       - run: ./gradlew nativeCompile
-      - run: ./gradlew prepareDockerfile
       - uses: docker/build-push-action@v2
         with:
           push: true
