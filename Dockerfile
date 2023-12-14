@@ -1,5 +1,5 @@
 FROM ubuntu:20.04
 
-COPY build/native/nativeCompile/allure-testops-utils /app/allure-testops-utils
+COPY build/native/nativeCompile /app
 
 ENTRYPOINT /app/allure-testops-utils

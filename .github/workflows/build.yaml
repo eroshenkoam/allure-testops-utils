@@ -19,11 +19,8 @@ jobs:
           distribution: 'graalvm'
       - run: ./gradlew build
       - run: ./gradlew nativeCompile
-      - run: | 
-          ls -al build 
-          ls -al build/native 
-          ls -al build/native/nativeCompile
       - uses: docker/build-push-action@v2
         with:
           push: true
+          context: .
           tags: ghcr.io/eroshenkoam/allure-testops-utils:native
