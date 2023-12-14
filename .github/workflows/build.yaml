@@ -19,6 +19,11 @@ jobs:
           distribution: 'graalvm'
       - run: ./gradlew build
       - run: ./gradlew nativeCompile
+      - uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.PACKAGES_USER }}
+          password: ${{ secrets.PACKAGES_PASS }}
       - uses: docker/build-push-action@v2
         with:
           push: true
