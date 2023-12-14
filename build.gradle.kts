@@ -30,7 +30,7 @@ val prepareDockerfile by tasks.creating(Dockerfile::class) {
     group = "Build"
     dependsOn(prepareDockerOutput)
     destFile.set(project.file("build/docker/Dockerfile"))
-    from("adoptopenjdk/openjdk17:alpine-jre")
+    from("openjdk:17-jre")
 
     addFile("${project.name}-${project.version}/bin", "/var/lib/${project.name}/bin")
     addFile("${project.name}-${project.version}/lib", "/var/lib/${project.name}/lib")
