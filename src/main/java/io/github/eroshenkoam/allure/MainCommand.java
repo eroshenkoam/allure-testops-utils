@@ -13,6 +13,7 @@ import picocli.CommandLine;
                 LdapDisableUsersCommand.class,
                 FileDisableUsersCommand.class,
                 LaunchCleanCommand.class,
+                SyncTestCasesCommand.class,
                 ExportTestCasesCommand.class,
                 ExportTestResultsCommand.class,
                 MigrateExpectedResultsCommand.class,
