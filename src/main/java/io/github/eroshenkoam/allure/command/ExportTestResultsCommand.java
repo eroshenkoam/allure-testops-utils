@@ -111,7 +111,8 @@ public class ExportTestResultsCommand extends AbstractTestOpsCommand {
                 .setDescription(origin.getDescription())
                 .setFullName(origin.getFullName())
                 .setStart(origin.getStart())
-                .setStop(origin.getStop());
+                .setStop(origin.getStop())
+                .setTestCaseId(String.valueOf(origin.getTestCaseId()));
     }
 
     private List<StepResult> convertScenario(final List<TestResultStep> steps) {
