@@ -22,6 +22,6 @@ jobs:
       - run: ./gradlew prepareDockerfile
       - uses: docker/build-push-action@v2
         with:
-          push: false
+          push: true
           context: build/docker
-          tags: ghcr.io/eroshenkoam/allure-testops-utils
+          tags: ghcr.io/eroshenkoam/allure-testops-utils-cstm:${{ github.run_id }}

@@ -77,7 +77,7 @@ dependencies {
     implementation("joda-time:joda-time:2.12.5")
 
     implementation("io.qameta.allure:allure-model:2.24.0")
-    implementation("io.qameta.allure:allure-ee-client:3.51.1")
+    implementation("io.qameta.allure:allure-ee-client:3.51.6")
 }
 
 graalvmNative {
