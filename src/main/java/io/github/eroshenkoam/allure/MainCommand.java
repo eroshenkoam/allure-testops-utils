@@ -16,6 +16,7 @@ import picocli.CommandLine;
                 ExportTestCasesCommand.class,
                 ExportTestResultsCommand.class,
                 MigrateExpectedResultsCommand.class,
+                MigrateTestCasesCommand.class,
                 RollbackTestCasesCommand.class
         }
 )
