@@ -17,10 +17,8 @@ import java.util.List;
 public class TestCaseBackupDto {
 
     private TestCase testCase;
-    private List<TestTag> tags;
     private List<Issue> issues;
     private List<Member> members;
-    private List<TestCaseRelation> relations;
     private List<CustomFieldValue> customFields;
 
     private TestCaseScenario scenario;
