@@ -150,7 +150,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                 System.out.printf("For test case [%s] set precondition [%s]%n", testCaseId, oldValue);
                 testCase.setPrecondition(Optional.ofNullable(oldValue).orElse(""));
             });
-            service.update(testCase).execute();
+            service.update(testCaseId, testCase).execute();
         }
     }
 
@@ -229,7 +229,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                     .map(TestTag::getId).collect(Collectors.toSet());
             newIds.addAll(idsToAdd);
             testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
-            service.update(testCase).execute();
+            service.update(testCaseId, testCase).execute();
         }
     }
 
@@ -255,7 +255,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                     .map(TestTag::getId).collect(Collectors.toSet());
             newIds.removeAll(idsToRemove);
             testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
-            service.update(testCase).execute();
+            service.update(testCaseId, testCase).execute();
         }
     }
 }
