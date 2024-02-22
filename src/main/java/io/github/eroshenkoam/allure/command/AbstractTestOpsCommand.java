@@ -5,11 +5,13 @@ import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.dto.Page;
 import io.qameta.allure.ee.client.dto.TestCase;
 import picocli.CommandLine;
+import retrofit2.Call;
 import retrofit2.Response;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public abstract class AbstractTestOpsCommand implements Runnable {
 
@@ -51,6 +53,14 @@ public abstract class AbstractTestOpsCommand implements Runnable {
         } catch (Exception e) {
             e.printStackTrace(System.out);
         }
+    }
+
+    protected <T> T executeRequest(final Call<T> call) throws IOException {
+        final Response<T> response = call.execute();
+        if (!response.isSuccessful()) {
+            throw new RuntimeException(response.errorBody().string());
+        }
+        return response.body();
     }
 
     protected ServiceBuilder getAllureServiceBuilder() {

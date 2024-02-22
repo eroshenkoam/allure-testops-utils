@@ -7,6 +7,8 @@ import picocli.CommandLine;
 @CommandLine.Command(
         name = "allure-testops-utils", mixinStandardHelpOptions = true,
         subcommands = {
+                BackupTestCasesCommand.class,
+                RestoreTestCasesCommand.class,
                 CrowdSyncGroupsCommand.class,
                 GitlabSyncGroupsCommand.class,
                 LdapSyncGroupsCommand.class,
