@@ -10,6 +10,32 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            ...
 ```
 
+## Backup/Restore
+
+### Backup Test Cases in Project
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "ALLURE_PROJECT_ID=1" \
+           -e "BACKUP_PATH=/data/backup" \
+           -v "backup:/data/backup"
+           ghcr.io/eroshenkoam/allure-testops-utils backup-testcases
+```
+
+### Restore Test Cases in Project
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "ALLURE_PROJECT_ID=1" \
+           -e "BACKUP_PATH=/data/backup" \
+           -v "backup:/data/backup"
+           ghcr.io/eroshenkoam/allure-testops-utils restore-testcases
+```
+
 ## Migrations
 
 ### Expected Results
