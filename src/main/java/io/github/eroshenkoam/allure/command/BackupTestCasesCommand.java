@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.dto.CustomFieldValue;
+import io.qameta.allure.ee.client.dto.Issue;
 import io.qameta.allure.ee.client.dto.Member;
 import io.qameta.allure.ee.client.dto.Page;
 import io.qameta.allure.ee.client.dto.TestCase;
@@ -43,6 +44,7 @@ public class BackupTestCasesCommand extends AbstractBackupRestoreCommand {
 
         final TestCase testCase = executeRequest(tcService.findById(testCaseId));
         final TestCaseScenario scenario = executeRequest(tcService.getScenario(testCaseId));
+        final List<Issue> issues = executeRequest(tcService.getIssues(testCaseId));
         final List<Member> members = executeRequest(tcService.getMembers(testCaseId));
         final List<CustomFieldValue> customFields = executeRequest(tcService.getCustomFields(testCaseId));
 
@@ -66,9 +68,12 @@ public class BackupTestCasesCommand extends AbstractBackupRestoreCommand {
         final Path testCasePath = getBackupTestCaseFile(testCaseId);
         MAPPER.writeValue(testCasePath.toFile(), backup);
 
+        final Path issuesPath = getBackupIssuesFile(testCaseId);
+        MAPPER.writeValue(issuesPath.toFile(), issues);
+
         final Page<TestCaseAttachment> attachments = executeRequest(tcService.getAttachments(testCaseId, 0, 1000));
         final Path attachmentsPath = getBackupAttachmentsFile(testCaseId);
-        MAPPER.writeValue(attachmentsPath.toFile(), attachments);
+        MAPPER.writeValue(attachmentsPath.toFile(), attachments.getContent());
 
         for(final TestCaseAttachment attachment: attachments.getContent()) {
             final ResponseBody attachmentContent = executeRequest(tcService.getAttachmentContent(attachment.getId()));

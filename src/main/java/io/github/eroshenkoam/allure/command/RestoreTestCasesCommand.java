@@ -3,6 +3,7 @@ package io.github.eroshenkoam.allure.command;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseService;
+import io.qameta.allure.ee.client.dto.Issue;
 import io.qameta.allure.ee.client.dto.Page;
 import io.qameta.allure.ee.client.dto.TestCaseAttachment;
 import io.qameta.allure.ee.client.dto.TestCasePatch;
@@ -42,14 +43,19 @@ public class RestoreTestCasesCommand extends AbstractBackupRestoreCommand {
                                  final Long testCaseId) throws IOException {
         System.out.printf("Restore test case with id '%s'\n", testCaseId);
 
+        final Map<Long, Long> attachmentContext = restoreAttachments(tcService, testCaseId);
 
         final Path backupTestCaseFile = getBackupTestCaseFile(testCaseId);
         final TestCasePatch backup = MAPPER.readValue(backupTestCaseFile.toFile(), TestCasePatch.class);
-
-        final Map<Long, Long> attachmentContext = restoreAttachments(tcService, testCaseId);
         updateScenarioAttachments(backup.getScenario(), attachmentContext);
-
         executeRequest(tcService.update(testCaseId, backup));
+
+        final Path issuesFile = getBackupIssuesFile(testCaseId);
+        // @formatter:off
+        final List<Issue> backupIssues = MAPPER
+                .readValue(issuesFile.toFile(), new TypeReference<List<Issue>>(){});
+        // @formatter:on
+        executeRequest(tcService.setIssues(testCaseId, backupIssues));
     }
 
     private Map<Long, Long> restoreAttachments(final TestCaseService tcService,

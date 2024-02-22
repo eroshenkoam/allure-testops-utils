@@ -54,6 +54,11 @@ public abstract class AbstractBackupRestoreCommand extends AbstractTestOpsComman
                 .resolve("attachments.json");
     }
 
+    protected Path getBackupIssuesFile(final Long testCaseId) throws IOException {
+        return getBackupTestCaseDir(testCaseId)
+                .resolve("issues.json");
+    }
+
     protected Path getBackupAttachmentContentFile(final Long testCaseId, final Long attachmentId) throws IOException {
         return getBackupTestCaseDir(testCaseId)
                 .resolve(String.format("attachment-%s", attachmentId));
