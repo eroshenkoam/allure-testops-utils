@@ -10,6 +10,7 @@ import io.qameta.allure.ee.client.dto.TestCase;
 import io.qameta.allure.ee.client.dto.TestCaseAuditEntry;
 import io.qameta.allure.ee.client.dto.TestCaseAuditEntryData;
 import io.qameta.allure.ee.client.dto.TestCaseAuditType;
+import io.qameta.allure.ee.client.dto.TestCasePatch;
 import io.qameta.allure.ee.client.dto.TestTag;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
@@ -129,7 +130,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                           final TestCaseAuditEntryData data) throws Exception {
             final TestCaseService service = builder.create(TestCaseService.class);
             final TestCaseDiff diff = (TestCaseDiff) data.getDiff();
-            final TestCase testCase = new TestCase().setId(testCaseId);
+            final TestCasePatch testCase = new TestCasePatch();
             Optional.ofNullable(diff.getName()).ifPresent(value -> {
                 final String oldValue = value.getOldValue();
                 System.out.printf("For test case [%s] set name [%s]%n", testCaseId, oldValue);
@@ -229,7 +230,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                     .map(TestTag::getId).collect(Collectors.toSet());
             newIds.addAll(idsToAdd);
             testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
-            service.update(testCaseId, testCase).execute();
+            service.update(testCaseId, null).execute();
         }
     }
 
@@ -255,7 +256,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                     .map(TestTag::getId).collect(Collectors.toSet());
             newIds.removeAll(idsToRemove);
             testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
-            service.update(testCaseId, testCase).execute();
+            service.update(testCaseId, null).execute();
         }
     }
 }

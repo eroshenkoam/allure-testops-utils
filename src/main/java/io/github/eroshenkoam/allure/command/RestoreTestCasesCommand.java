@@ -1,22 +1,25 @@
 package io.github.eroshenkoam.allure.command;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.eroshenkoam.allure.model.TestCaseBackupDto;
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseService;
-import io.qameta.allure.ee.client.dto.CustomFieldValue;
-import io.qameta.allure.ee.client.dto.Issue;
-import io.qameta.allure.ee.client.dto.Member;
-import io.qameta.allure.ee.client.dto.TestCase;
+import io.qameta.allure.ee.client.dto.Page;
+import io.qameta.allure.ee.client.dto.TestCaseAttachment;
+import io.qameta.allure.ee.client.dto.TestCasePatch;
 import io.qameta.allure.ee.client.dto.TestCaseScenario;
+import io.qameta.allure.ee.client.dto.TestCaseStep;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import picocli.CommandLine;
-import retrofit2.Response;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @CommandLine.Command(
         name = "restore-testcases", mixinStandardHelpOptions = true,
@@ -39,36 +42,64 @@ public class RestoreTestCasesCommand extends AbstractBackupRestoreCommand {
                                  final Long testCaseId) throws IOException {
         System.out.printf("Restore test case with id '%s'\n", testCaseId);
 
+
         final Path backupTestCaseFile = getBackupTestCaseFile(testCaseId);
-        final TestCaseBackupDto backup = MAPPER.readValue(backupTestCaseFile.toFile(), TestCaseBackupDto.class);
+        final TestCasePatch backup = MAPPER.readValue(backupTestCaseFile.toFile(), TestCasePatch.class);
 
-        final Response<TestCase> updateResponse = tcService.update(backup.getTestCase()).execute();
-        if (!updateResponse.isSuccessful()) {
-            throw new RuntimeException(updateResponse.message());
+        final Map<Long, Long> attachmentContext = restoreAttachments(tcService, testCaseId);
+        updateScenarioAttachments(backup.getScenario(), attachmentContext);
+
+        executeRequest(tcService.update(testCaseId, backup));
+    }
+
+    private Map<Long, Long> restoreAttachments(final TestCaseService tcService,
+                                               final Long testCaseId) throws IOException {
+        final Path attachmentsFile = getBackupAttachmentsFile(testCaseId);
+        // @formatter:off
+        final List<TestCaseAttachment> backupAttachments = MAPPER
+                .readValue(attachmentsFile.toFile(), new TypeReference<List<TestCaseAttachment>>(){});
+        // @formatter:on
+        final Page<TestCaseAttachment> testCaseAttachments = executeRequest(
+                tcService.getAttachments(testCaseId, 0, 1000)
+        );
+        for (TestCaseAttachment attachment: testCaseAttachments.getContent()) {
+            executeRequest(tcService.deleteAttachment(attachment.getId()));
         }
-
-        final Response<Void> scenarioResponse = tcService
-                .setScenario(testCaseId, backup.getScenario()).execute();
-        if (!scenarioResponse.isSuccessful()) {
-            throw new RuntimeException(scenarioResponse.message());
+        final Map<Long, Long> context = new HashMap<>();
+        for (TestCaseAttachment attachment: backupAttachments) {
+            final Path attachmentFile = getBackupAttachmentContentFile(testCaseId, attachment.getId());
+            final RequestBody requestBody = RequestBody.create(
+                    MediaType.parse(attachment.getContentType()),
+                    Files.readAllBytes(attachmentFile)
+            );
+            final MultipartBody.Part attachmentPart = MultipartBody.Part
+                    .createFormData("file", attachment.getName(), requestBody);
+            final List<TestCaseAttachment> createdAttachments = executeRequest(
+                    tcService.addAttachment(testCaseId, List.of(attachmentPart))
+            );
+            final Long newId = createdAttachments.get(0).getId();
+            context.put(attachment.getId(), newId);
         }
+        return context;
+    }
 
-        final Response<List<Issue>> issueResponse = tcService
-                .setIssues(testCaseId, backup.getIssues()).execute();
-        if (!issueResponse.isSuccessful()) {
-            throw new RuntimeException(issueResponse.message());
+    private void updateScenarioAttachments(final TestCaseScenario scenario,
+                                           final Map<Long, Long> context) {
+        updateStepAttachments(scenario.getSteps(), context);
+    }
+
+    private void updateStepAttachments(final List<TestCaseStep> steps,
+                                       final Map<Long, Long> context) {
+        if (Objects.isNull(steps)) {
+            return;
         }
-
-        final Response<List<Member>> memberResponse = tcService
-                .setMembers(testCaseId, backup.getMembers()).execute();
-        if (!memberResponse.isSuccessful()) {
-            throw new RuntimeException(memberResponse.message());
-        }
-
-        final Response<List<CustomFieldValue>> customFieldsResponse = tcService
-                .setCustomFields(testCaseId, backup.getCustomFields()).execute();
-        if (!customFieldsResponse.isSuccessful()) {
-            throw new RuntimeException(customFieldsResponse.message());
+        for (final TestCaseStep step: steps) {
+            if (Objects.nonNull(step.getAttachments())) {
+                for (final TestCaseAttachment attachment: step.getAttachments()) {
+                    attachment.setId(context.get(attachment.getId()));
+                }
+            }
+            updateStepAttachments(step.getSteps(), context);
         }
     }
 

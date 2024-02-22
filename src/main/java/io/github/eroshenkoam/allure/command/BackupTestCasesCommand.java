@@ -1,21 +1,21 @@
 package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.eroshenkoam.allure.model.TestCaseBackupDto;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.dto.CustomFieldValue;
-import io.qameta.allure.ee.client.dto.Issue;
 import io.qameta.allure.ee.client.dto.Member;
+import io.qameta.allure.ee.client.dto.Page;
 import io.qameta.allure.ee.client.dto.TestCase;
+import io.qameta.allure.ee.client.dto.TestCaseAttachment;
+import io.qameta.allure.ee.client.dto.TestCasePatch;
 import io.qameta.allure.ee.client.dto.TestCaseScenario;
+import okhttp3.ResponseBody;
 import picocli.CommandLine;
-import retrofit2.Response;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 @CommandLine.Command(
@@ -41,40 +41,40 @@ public class BackupTestCasesCommand extends AbstractBackupRestoreCommand {
                                 final Long testCaseId) throws IOException {
         System.out.printf("Backup test case with id '%s'\n", testCaseId);
 
-        final Response<TestCase> testCaseResponse = tcService.findById(testCaseId).execute();
-        if (!testCaseResponse.isSuccessful()) {
-            throw new RuntimeException(testCaseResponse.message());
-        }
+        final TestCase testCase = executeRequest(tcService.findById(testCaseId));
+        final TestCaseScenario scenario = executeRequest(tcService.getScenario(testCaseId));
+        final List<Member> members = executeRequest(tcService.getMembers(testCaseId));
+        final List<CustomFieldValue> customFields = executeRequest(tcService.getCustomFields(testCaseId));
 
-        final Response<TestCaseScenario> scenarioResponse = tcService.getScenario(testCaseId).execute();
-        if (!scenarioResponse.isSuccessful()) {
-            throw new RuntimeException(scenarioResponse.message());
-        }
-
-        final Response<List<Issue>> issueResponse = tcService.getIssues(testCaseId).execute();
-        if (!issueResponse.isSuccessful()) {
-            throw new RuntimeException(issueResponse.message());
-        }
-
-        final Response<List<Member>> memberResponse = tcService.getMembers(testCaseId).execute();
-        if (!memberResponse.isSuccessful()) {
-            throw new RuntimeException(memberResponse.message());
-        }
-
-        final Response<List<CustomFieldValue>> customFieldsResponse = tcService.getCustomFields(testCaseId).execute();
-        if (!customFieldsResponse.isSuccessful()) {
-            throw new RuntimeException(customFieldsResponse.message());
-        }
-
-        final TestCaseBackupDto testCaseBackup = new TestCaseBackupDto()
-                .setIssues(issueResponse.body())
-                .setMembers(memberResponse.body())
-                .setCustomFields(customFieldsResponse.body())
-                .setTestCase(testCaseResponse.body())
-                .setScenario(scenarioResponse.body());
+        final TestCasePatch backup = new TestCasePatch()
+                .setName(testCase.getName())
+                .setFullName(testCase.getFullName())
+                .setStatusId(testCase.getStatus().getId())
+                .setWorkflowId(testCase.getWorkflow().getId())
+                .setDescription(testCase.getDescription())
+                .setPrecondition(testCase.getPrecondition())
+                .setExpectedResult(testCase.getExpectedResult())
+                .setDeleted(testCase.getDeleted())
+                .setExternal(testCase.getExternal())
+                .setAutomated(testCase.getAutomated())
+                .setTags(testCase.getTags())
+                .setLinks(testCase.getLinks())
+                .setMembers(members)
+                .setCustomFields(customFields)
+                .setScenario(scenario);
 
         final Path testCasePath = getBackupTestCaseFile(testCaseId);
-        MAPPER.writeValue(testCasePath.toFile(), testCaseBackup);
+        MAPPER.writeValue(testCasePath.toFile(), backup);
+
+        final Page<TestCaseAttachment> attachments = executeRequest(tcService.getAttachments(testCaseId, 0, 1000));
+        final Path attachmentsPath = getBackupAttachmentsFile(testCaseId);
+        MAPPER.writeValue(attachmentsPath.toFile(), attachments);
+
+        for(final TestCaseAttachment attachment: attachments.getContent()) {
+            final ResponseBody attachmentContent = executeRequest(tcService.getAttachmentContent(attachment.getId()));
+            final Path attachmentContentPath = getBackupAttachmentContentFile(testCaseId, attachment.getId());
+            Files.write(attachmentContentPath.toAbsolutePath(), attachmentContent.bytes());
+        }
     }
 
 }
