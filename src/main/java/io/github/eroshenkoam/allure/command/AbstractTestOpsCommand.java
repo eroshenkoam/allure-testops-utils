@@ -37,6 +37,13 @@ public abstract class AbstractTestOpsCommand implements Runnable {
     protected String allurePassword;
 
     @CommandLine.Option(
+            names = {"--allure.token"},
+            description = "Allure Token",
+            defaultValue = "${env:ALLURE_TOKEN}"
+    )
+    protected String allureToken;
+
+    @CommandLine.Option(
             names = {"--allure.insecure"},
             description = "Allure TestOps insecure",
             defaultValue = "${env:ALLURE_INSECURE}"
@@ -66,7 +73,7 @@ public abstract class AbstractTestOpsCommand implements Runnable {
     protected ServiceBuilder getAllureServiceBuilder() {
         return new ServiceBuilder(allureEndpoint)
                 .insecure(allureInsecure)
-                .authBasic(allureUsername, allurePassword);
+                .authToken(allureToken);
     }
 
     protected List<Long> getTestCases(final TestCaseService service,

@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v1
       - uses: graalvm/setup-graalvm@v1
@@ -21,7 +21,7 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./build/native/nativeCompile/allure-testops-utils
-          asset_name: allure-testops-utils
+          asset_name: allure-testops-utils-ubuntu-20_04
           asset_content_type: application/octet-stream
       - run: ./gradlew prepareDockerfile
       - run: echo "PROJECT_VERSION=${GITHUB_REF:10}" >> $GITHUB_ENV
@@ -35,5 +35,5 @@ jobs:
           push: true
           context: build/docker
           tags: |
-            ghcr.io/eroshenkoam/allure-testops-utils:${{ env.PROJECT_VERSION }}
-            ghcr.io/eroshenkoam/allure-testops-utils:latest
+            ghcr.io/Saggitar1us/allure-testops-utils:${{ env.PROJECT_VERSION }}
+            ghcr.io/Saggitar1us/allure-testops-utils:latest

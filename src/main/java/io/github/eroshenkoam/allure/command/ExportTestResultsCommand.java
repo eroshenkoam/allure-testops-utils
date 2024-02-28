@@ -75,7 +75,7 @@ public class ExportTestResultsCommand extends AbstractTestOpsCommand {
                 new Page<io.qameta.allure.ee.client.dto.TestResult>().setNumber(-1);
         do {
             final Response<Page<io.qameta.allure.ee.client.dto.TestResult>> response = service
-                    .findByRql(allureProjectId, allureTestResultFilter, current.getNumber() + 1, 10)
+                    .findByRql(allureProjectId, allureTestResultFilter, current.getNumber() + 1, 1000)
                     .execute();
             if (!response.isSuccessful()) {
                 throw new RuntimeException("Can not find rql: " + response.message());
@@ -111,7 +111,8 @@ public class ExportTestResultsCommand extends AbstractTestOpsCommand {
                 .setDescription(origin.getDescription())
                 .setFullName(origin.getFullName())
                 .setStart(origin.getStart())
-                .setStop(origin.getStop());
+                .setStop(origin.getStop())
+                .setTestCaseId(String.valueOf(origin.getTestCaseId()));
     }
 
     private List<StepResult> convertScenario(final List<TestResultStep> steps) {
