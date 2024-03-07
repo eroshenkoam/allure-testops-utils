@@ -4,14 +4,11 @@ import io.qameta.allure.ee.client.AccountService;
 import io.qameta.allure.ee.client.GroupService;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.dto.*;
-import picocli.CommandLine;
-import retrofit2.Response;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class AbstractSyncGroupsCommand extends AbstractTestOpsCommand {
@@ -34,11 +31,7 @@ public abstract class AbstractSyncGroupsCommand extends AbstractTestOpsCommand {
 
     private void syncAllureGroups(final Map<String, List<String>> groupUsers,
                                   final GroupService groupService) throws IOException {
-        final Response<Page<Group>> groupsResponse = groupService.find("", 0, 1000).execute();
-        if (!groupsResponse.isSuccessful()) {
-            throw new RuntimeException(groupsResponse.message());
-        }
-        final Page<Group> groups = groupsResponse.body();
+        final Page<Group> groups = executeRequest(groupService.find("", 0, 1000));
 
         for (Map.Entry<String, List<String>> entry : groupUsers.entrySet()) {
             final String name = entry.getKey();
@@ -50,35 +43,18 @@ public abstract class AbstractSyncGroupsCommand extends AbstractTestOpsCommand {
 
             if (existing.isPresent()) {
                 final Group group = existing.get();
-                final Response<Page<GroupUser>> groupUsersResponse = groupService.getUsers(group.getId()).execute();
-                if (!groupUsersResponse.isSuccessful()) {
-                    throw new RuntimeException(groupUsersResponse.message());
-                }
-                for (GroupUser user : groupUsersResponse.body().getContent()) {
-                    final Response<Void> removeResponse = groupService
-                            .removeUser(group.getId(), user.getUsername()).execute();
-                    if (!removeResponse.isSuccessful()) {
-                        throw new RuntimeException(removeResponse.message());
-                    }
+                final Page<GroupUser> groupUsersList = executeRequest(groupService.getUsers(group.getId()));
+                for (GroupUser user : groupUsersList.getContent()) {
+                    executeRequest(groupService.removeUser(group.getId(), user.getUsername()));
                 }
                 final GroupUserAdd users = new GroupUserAdd().setUsernames(usernames);
-                final Response<Void> addResponse = groupService.addUsers(group.getId(), users).execute();
-                if (!addResponse.isSuccessful()) {
-                    throw new RuntimeException(addResponse.message());
-                }
+                executeRequest(groupService.addUsers(group.getId(), users));
             } else {
                 final Group group = new Group()
                         .setName(name);
-                final Response<Group> createdResponse = groupService.create(group).execute();
-                if (!createdResponse.isSuccessful()) {
-                    throw new RuntimeException(createdResponse.message());
-                }
-                final Group created = createdResponse.body();
+                final Group created = executeRequest(groupService.create(group));
                 final GroupUserAdd users = new GroupUserAdd().setUsernames(usernames);
-                final Response<Void> addResponse = groupService.addUsers(created.getId(), users).execute();
-                if (!addResponse.isSuccessful()) {
-                    throw new RuntimeException(addResponse.message());
-                }
+                executeRequest(groupService.addUsers(created.getId(), users));
             }
 
         }
@@ -87,11 +63,7 @@ public abstract class AbstractSyncGroupsCommand extends AbstractTestOpsCommand {
 
     private List<String> getAllureUsernames(final AccountService accountService) throws IOException {
 
-        final Response<Page<Account>> accountsResponse = accountService.getAccounts().execute();
-        if (!accountsResponse.isSuccessful()) {
-            throw new RuntimeException(accountsResponse.message());
-        }
-        final List<Account> accounts = accountsResponse.body().getContent();
+        final List<Account> accounts = executeRequest(accountService.getAccounts()).getContent();
         return accounts.stream()
                 .map(Account::getUsername)
                 .collect(Collectors.toList());

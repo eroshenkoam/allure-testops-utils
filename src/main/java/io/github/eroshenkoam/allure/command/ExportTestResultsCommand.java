@@ -62,7 +62,7 @@ public class ExportTestResultsCommand extends AbstractTestOpsCommand {
         final ObjectMapper mapper = new ObjectMapper()
                 .enable(JsonGenerator.Feature.IGNORE_UNKNOWN);
 
-        for (final TestResult result: testResults) {
+        for (final TestResult result : testResults) {
             final Path testResultPath = outputPath
                     .resolve(String.format("%s-result.json", result.getUuid()));
             mapper.writeValue(testResultPath.toFile(), result);
@@ -74,29 +74,16 @@ public class ExportTestResultsCommand extends AbstractTestOpsCommand {
         Page<io.qameta.allure.ee.client.dto.TestResult> current =
                 new Page<io.qameta.allure.ee.client.dto.TestResult>().setNumber(-1);
         do {
-            final Response<Page<io.qameta.allure.ee.client.dto.TestResult>> response = service
-                    .findByRql(allureProjectId, allureTestResultFilter, current.getNumber() + 1, 10)
-                    .execute();
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("Can not find rql: " + response.message());
-            }
-            current = response.body();
+            current = executeRequest(
+                    service.findByRql(allureProjectId, allureTestResultFilter, current.getNumber() + 1, 10)
+            );
             for (io.qameta.allure.ee.client.dto.TestResult info : current.getContent()) {
-                final Response<io.qameta.allure.ee.client.dto.TestResult> originResponse =
-                        service.findById(info.getId()).execute();
-                if (!originResponse.isSuccessful()) {
-                    throw new RuntimeException("Can not find testresult: " + response.message());
-                }
-                final io.qameta.allure.ee.client.dto.TestResult origin = originResponse.body();
+                final io.qameta.allure.ee.client.dto.TestResult origin = executeRequest(service.findById(info.getId()));
                 final TestResult testResult = convertTestResult(origin);
 
-                final Response<TestResultScenario> scenarioResponse =
-                        service.getScenario(info.getId()).execute();
-                if (!scenarioResponse.isSuccessful()) {
-                    throw new RuntimeException("Can not find scenario: " + scenarioResponse.message());
-                }
-                if (Objects.nonNull(scenarioResponse.body())) {
-                    testResult.setSteps(convertScenario(scenarioResponse.body().getSteps()));
+                final TestResultScenario scenario = executeRequest(service.getScenario(info.getId()));
+                if (Objects.nonNull(scenario)) {
+                    testResult.setSteps(convertScenario(scenario.getSteps()));
                 }
                 testCases.add(testResult);
             }

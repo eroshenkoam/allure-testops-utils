@@ -61,12 +61,10 @@ public class GitlabSyncGroupsCommand extends AbstractSyncGroupsCommand {
             final Response<List<GitlabMember>> userResponse = gitlabService.getUser(username).execute();
             if (userResponse.isSuccessful() && userResponse.body().size() == 1) {
                 System.out.printf("Sync groups for [%s]\n", username);
-                final Response<List<GitlabMembership>> membershipsResponse = gitlabService
-                        .getUserMembers(userResponse.body().get(0).getId()).execute();
-                if (!membershipsResponse.isSuccessful()) {
-                    throw new RuntimeException(membershipsResponse.message());
-                }
-                membershipsResponse.body().stream()
+                final List<GitlabMembership> memberships = executeRequest(
+                        gitlabService.getUserMembers(userResponse.body().get(0).getId())
+                );
+                memberships.stream()
                         .filter(membership -> membership.getSourceType().equals("Namespace"))
                         .map(GitlabMembership::getSourceName)
                         .forEach(name -> {

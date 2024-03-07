@@ -169,7 +169,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                           final TestCaseAuditEntryData data) throws Exception {
             final TestCaseService service = builder.create(TestCaseService.class);
             final TestCaseAssociationDiff diff = (TestCaseAssociationDiff) data.getDiff();
-            final List<CustomFieldValue> fields = service.getCustomFields(testCaseId).execute().body();
+            final List<CustomFieldValue> fields = executeRequest(service.getCustomFields(testCaseId));
             final Set<Long> ids = diff.getIds().getOldValue();
             System.out.printf("For test case [%s] add fields [%s]%n", testCaseId, ids);
             for (Long id : ids) {
@@ -177,7 +177,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                     fields.add(new CustomFieldValue().setId(id));
                 }
             }
-            service.setCustomFields(testCaseId, fields).execute();
+            executeRequest(service.setCustomFields(testCaseId, fields));
         }
     }
 
@@ -195,7 +195,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                           final TestCaseAuditEntryData data) throws Exception {
             final TestCaseService service = builder.create(TestCaseService.class);
             final TestCaseAssociationDiff diff = (TestCaseAssociationDiff) data.getDiff();
-            final List<CustomFieldValue> fields = service.getCustomFields(testCaseId).execute().body();
+            final List<CustomFieldValue> fields = executeRequest(service.getCustomFields(testCaseId));
             final Set<Long> ids = diff.getIds().getNewValue();
             System.out.printf("For test case [%s] remove fields [%s]%n", testCaseId, ids);
             for (Long id : ids) {
@@ -204,7 +204,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                         .findAny();
                 founded.ifPresent(fields::remove);
             }
-            service.setCustomFields(testCaseId, fields).execute();
+            executeRequest(service.setCustomFields(testCaseId, fields));
         }
     }
 
@@ -222,7 +222,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                           final TestCaseAuditEntryData data) throws Exception {
             final TestCaseService service = builder.create(TestCaseService.class);
             final TestCaseAssociationDiff diff = (TestCaseAssociationDiff) data.getDiff();
-            final TestCase testCase = service.findById(testCaseId).execute().body();
+            final TestCase testCase = executeRequest(service.findById(testCaseId));
             final Set<Long> idsToAdd = diff.getIds().getOldValue();
             System.out.printf("For test case [%s] add tags [%s]%n", testCaseId, idsToAdd);
 
@@ -230,7 +230,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                     .map(TestTag::getId).collect(Collectors.toSet());
             newIds.addAll(idsToAdd);
             testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
-            service.update(testCaseId, null).execute();
+            executeRequest(service.update(testCaseId, null));
         }
     }
 
@@ -248,7 +248,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                           final TestCaseAuditEntryData data) throws Exception {
             final TestCaseService service = builder.create(TestCaseService.class);
             final TestCaseAssociationDiff diff = (TestCaseAssociationDiff) data.getDiff();
-            final TestCase testCase = service.findById(testCaseId).execute().body();
+            final TestCase testCase = executeRequest(service.findById(testCaseId));
             final Set<Long> idsToRemove = diff.getIds().getNewValue();
             System.out.printf("For test case [%s] remove tags [%s]%n", testCaseId, idsToRemove);
 
@@ -256,7 +256,7 @@ public class RollbackTestCasesCommand extends AbstractTestOpsCommand {
                     .map(TestTag::getId).collect(Collectors.toSet());
             newIds.removeAll(idsToRemove);
             testCase.setTags(newIds.stream().map(id -> new TestTag().setId(id)).collect(Collectors.toList()));
-            service.update(testCaseId, null).execute();
+            executeRequest(service.update(testCaseId, null));
         }
     }
 }

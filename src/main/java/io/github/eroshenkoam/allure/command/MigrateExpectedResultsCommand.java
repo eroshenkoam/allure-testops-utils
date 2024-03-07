@@ -64,11 +64,7 @@ public class MigrateExpectedResultsCommand extends AbstractTestOpsCommand {
     public void migrateTestCaseScenario(final TestCaseService service,
                                         final Long testCaseId) throws IOException {
         System.out.printf("Migrating scenario for test case: %s\n", testCaseId);
-        final Response<TestCaseScenario> scenarioResponse = service.getScenario(testCaseId).execute();
-        if (!scenarioResponse.isSuccessful()) {
-            throw new RuntimeException(scenarioResponse.message());
-        }
-        final TestCaseScenario oldScenario = scenarioResponse.body();
+        final TestCaseScenario oldScenario = executeRequest(service.getScenario(testCaseId));
         if (Objects.isNull(oldScenario) || Objects.isNull(oldScenario.getSteps())) {
             System.out.printf("Skipping migration for test case with empty scenario: %s\n", testCaseId);
             return;
@@ -85,10 +81,7 @@ public class MigrateExpectedResultsCommand extends AbstractTestOpsCommand {
         final TestCaseScenario newScenario = migrateScenario(oldScenario);
         System.out.printf("Scenario converted for test case: %s\n", testCaseId);
 
-        final Response<Void> updateResponse = service.setScenario(testCaseId, newScenario).execute();
-        if (!updateResponse.isSuccessful()) {
-            throw new RuntimeException(updateResponse.message());
-        }
+        executeRequest(service.setScenario(testCaseId, newScenario));
         System.out.printf("Scenario migrated successfully for test case: %s\n", testCaseId);
     }
 

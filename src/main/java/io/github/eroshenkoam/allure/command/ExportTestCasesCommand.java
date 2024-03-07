@@ -79,13 +79,9 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
         final List<TestCaseDto> testCases = new ArrayList<>();
         Page<TestCase> current = new Page<TestCase>().setNumber(-1);
         do {
-            final Response<Page<TestCase>> response = service
-                    .findByRql(allureProjectId, allureTestCaseFilter, current.getNumber() + 1, 10)
-                    .execute();
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("Can not find launches: " + response.message());
-            }
-            current = response.body();
+            current = executeRequest(service.findByRql(
+                    allureProjectId, allureTestCaseFilter, current.getNumber() + 1, 10
+            ));
             for (TestCase item : current.getContent()) {
                 final TestCaseDto testCase = convertTestCase(item);
                 testCase.setSteps(getTestCaseSteps(service, testCase));
@@ -112,22 +108,21 @@ public class ExportTestCasesCommand extends AbstractTestOpsCommand {
     private void downloadTestCaseAttachments(final TestCaseService service, final Long testCaseId) throws IOException {
         System.out.printf("Download TestCaseAttachments for test case [%s]\n", testCaseId);
 
-        final Path baseTestCaseAttachmentsPath = outputPath.resolve("TestCaseAttachments").resolve(testCaseId.toString());
+        final Path baseTestCaseAttachmentsPath = outputPath
+                .resolve("TestCaseAttachments")
+                .resolve(testCaseId.toString());
         Files.createDirectories(baseTestCaseAttachmentsPath);
 
-        final Response<Page<TestCaseAttachment>> TestCaseAttachmentsResponse = service.getAttachments(testCaseId, 0, 100).execute();
-        if (!TestCaseAttachmentsResponse.isSuccessful()) {
-            return;
-        }
-        final List<TestCaseAttachmentDto> TestCaseAttachments = convertTestCaseAttachments(TestCaseAttachmentsResponse.body().getContent());
+        final Page<TestCaseAttachment> attachments = executeRequest(service.getAttachments(testCaseId, 0, 100));
+        final List<TestCaseAttachmentDto> TestCaseAttachments = convertTestCaseAttachments(attachments.getContent());
         for (TestCaseAttachmentDto TestCaseAttachment : TestCaseAttachments) {
-            System.out.printf("Download TestCaseAttachment [%s] for test case [%s]\n", TestCaseAttachment.getName(), testCaseId);
-            final Path TestCaseAttachmentPath = baseTestCaseAttachmentsPath.resolve(prepareTestCaseAttachmentName(TestCaseAttachment.getName()));
-            final Response<ResponseBody> TestCaseAttachmentResponse = service
-                    .getAttachmentContent(TestCaseAttachment.getId()).execute();
-            if (TestCaseAttachmentResponse.isSuccessful()) {
-                Files.write(TestCaseAttachmentPath, TestCaseAttachmentResponse.body().bytes());
-            }
+            System.out.printf(
+                    "Download TestCaseAttachment [%s] for test case [%s]\n", TestCaseAttachment.getName(), testCaseId
+            );
+            final Path TestCaseAttachmentPath = baseTestCaseAttachmentsPath
+                    .resolve(prepareTestCaseAttachmentName(TestCaseAttachment.getName()));
+            final ResponseBody content = executeRequest(service.getAttachmentContent(TestCaseAttachment.getId()));
+            Files.write(TestCaseAttachmentPath, content.bytes());
         }
     }
 

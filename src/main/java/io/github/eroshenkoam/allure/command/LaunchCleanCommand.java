@@ -61,10 +61,7 @@ public class LaunchCleanCommand extends AbstractTestOpsCommand {
         System.out.printf("Found [%s] launches by query [%s]\n", launchesToDelete.size(), launchQuery);
 
         for (Launch launch : launchesToDelete) {
-            final Response<Launch> response = service.delete(launch.getId()).execute();
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("Can not delete launch: " + response.message());
-            }
+            executeRequest(service.delete(launch.getId()));
         }
     }
 
@@ -72,13 +69,7 @@ public class LaunchCleanCommand extends AbstractTestOpsCommand {
         final List<Launch> launches = new ArrayList<>();
         Page<Launch> current = new Page<Launch>().setNumber(-1);
         do {
-            final Response<Page<Launch>> response = service
-                    .findAll(projectId, launchQuery, current.getNumber() + 1, 10)
-                    .execute();
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("Can not find launches: " + response.message());
-            }
-            current = response.body();
+            current = executeRequest(service.findAll(projectId, launchQuery, current.getNumber() + 1, 10));
             launches.addAll(current.getContent());
         } while (current.getNumber() < current.getTotalPages());
         return launches;

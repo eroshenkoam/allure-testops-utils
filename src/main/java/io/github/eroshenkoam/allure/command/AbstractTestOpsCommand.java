@@ -11,7 +11,6 @@ import retrofit2.Response;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 public abstract class AbstractTestOpsCommand implements Runnable {
 
@@ -55,14 +54,6 @@ public abstract class AbstractTestOpsCommand implements Runnable {
         }
     }
 
-    protected <T> T executeRequest(final Call<T> call) throws IOException {
-        final Response<T> response = call.execute();
-        if (!response.isSuccessful()) {
-            throw new RuntimeException(response.errorBody().string());
-        }
-        return response.body();
-    }
-
     protected ServiceBuilder getAllureServiceBuilder() {
         return new ServiceBuilder(allureEndpoint)
                 .insecure(allureInsecure)
@@ -75,18 +66,22 @@ public abstract class AbstractTestOpsCommand implements Runnable {
         final List<Long> testCases = new ArrayList<>();
         Page<TestCase> current = new Page<TestCase>().setNumber(-1);
         do {
-            final Response<Page<TestCase>> response = service
-                    .findByRql(projectId, filter, current.getNumber() + 1, 100)
-                    .execute();
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("Can not find launches: " + response.message());
-            }
-            current = response.body();
+            current = executeRequest(
+                    service.findByRql(projectId, filter, current.getNumber() + 1, 100)
+            );
             for (TestCase item : current.getContent()) {
                 testCases.add(item.getId());
             }
         } while (current.getNumber() < current.getTotalPages());
         return testCases;
+    }
+
+    protected static <T> T executeRequest(final Call<T> call) throws IOException {
+        final Response<T> response = call.execute();
+        if (!response.isSuccessful()) {
+            throw new RuntimeException(response.errorBody().string());
+        }
+        return response.body();
     }
 
 }
