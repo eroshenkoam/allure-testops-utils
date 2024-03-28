@@ -10,6 +10,7 @@ import io.qameta.allure.ee.client.TestCaseScenarioService;
 import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.dto.Page;
 import io.qameta.allure.ee.client.dto.Project;
+import io.qameta.allure.ee.client.dto.ScenarioAttachment;
 import io.qameta.allure.ee.client.dto.ScenarioNormalized;
 import io.qameta.allure.ee.client.dto.ScenarioStep;
 import io.qameta.allure.ee.client.dto.ScenarioStepCreate;
@@ -27,6 +28,7 @@ import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import picocli.CommandLine;
+import retrofit2.Response;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -64,11 +66,14 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private static final String RQL_TEST_CASE = "not layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]";
     private static final String RQL_SHARED_STEP = "layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]";
 
+    private static final String ATTACHMENT_CONTENT_SHARED_STEP = "shared/json";
+
     private static final Pattern ATTACHMENT_PATTERN =
             Pattern.compile("!\\[(.*)]\\(/api/rs/testcase/attachment/(?<id>\\d*)/content\\)");
 
     private static final Pattern EXPECTED_PATTERN =
             Pattern.compile("\\{\"action\":\"(?<action>.*)\",\"expected\":\"(?<expected>.*)");
+
 
     private static final ObjectMapper MAPPER = new ObjectMapper().disable(FAIL_ON_UNKNOWN_PROPERTIES);
 
@@ -149,7 +154,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         invokeParallel("migrate test case scenarios", testCaseIds, (id) -> {
             System.out.printf("Migrating test case scenario with id %s\n", id);
             executeRequest(tcScenarioService.migrateScenario(id));
-            migrateExpected(tcScenarioService, id);
         });
     }
 
@@ -162,7 +166,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         System.out.printf("Found information about %d test cases\n", testCasesMap.size());
         invokeParallel("migrate project shared steps", testCaseIds, (id) -> {
             System.out.printf("Migrating test case with id %s\n", id);
-            migrateExpected(tcScenarioService, id);
             migrateSharedSteps(tcScenarioService, id, sharedSteps);
         });
     }
@@ -322,21 +325,44 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                                     final Long testCaseId,
                                     final Map<Long, Long> sharedSteps) throws Exception {
         final ScenarioNormalized scenario = executeRequest(scenarioService.getScenario(testCaseId));
-        final Collection<ScenarioStep> steps = scenario.getScenarioSteps().values();
-        for (ScenarioStep step : steps) {
-            final String name = step.getBody();
-            if (Objects.nonNull(name) && name.startsWith("shared")) {
-                final StepShared customStep = MAPPER.readValue(
-                        name.replaceFirst("shared", "").trim(), StepShared.class
-                );
-                final ScenarioStepUpdate update = new ScenarioStepUpdate()
-                        .setBody(null)
-                        .setExpectedResult(null)
-                        .setAttachmentId(null)
-                        .setSharedStepId(sharedSteps.get(customStep.getTestCaseId()));
-                executeRequest(scenarioService.updateStep(step.getId(), update));
+        for (Map.Entry<Long, ScenarioAttachment> entry : scenario.getAttachments().entrySet()) {
+            if (entry.getValue().getContentType().equals(ATTACHMENT_CONTENT_SHARED_STEP)) {
+                final Long stepId = scenario.getScenarioSteps().entrySet().stream()
+                        .filter(e -> entry.getKey().equals(e.getValue().getAttachmentId()))
+                        .map(Map.Entry::getKey)
+                        .findAny()
+                        .orElseThrow();
+                final Optional<Long> customStepId = getCustomStepId(scenarioService, entry.getValue());
+                final ScenarioStepUpdate update = new ScenarioStepUpdate();
+                if (customStepId.isPresent()) {
+                    final Optional<Long> sharedStepId = Optional.ofNullable(sharedSteps.get(customStepId.get()));
+                    if (sharedStepId.isPresent()) {
+                        executeRequest(scenarioService.updateStep(stepId, update.setSharedStepId(sharedStepId.get())));
+                    } else {
+                        final String body = String.format("Missing shared step <%s> information", customStepId.get());
+                        System.out.println(body);
+                        executeRequest(scenarioService.updateStep(stepId, update.setBody(body)));
+                    }
+                }
             }
         }
+    }
+
+    private Optional<Long> getCustomStepId(final TestCaseScenarioService scenarioService,
+                                           final ScenarioAttachment attachment) throws IOException {
+        final String sharedStepAttachmentNamePrefix = "shared-step-";
+        final String name = attachment.getName();
+        if (name.startsWith(sharedStepAttachmentNamePrefix)) {
+            return Optional.of(Long.parseLong(name.replaceFirst(sharedStepAttachmentNamePrefix, "")));
+        } else {
+            final Response<ResponseBody> contentResponse = scenarioService
+                    .getAttachmentContent(attachment.getId()).execute();
+            if (contentResponse.isSuccessful()) {
+                final StepShared stepShared = MAPPER.readValue(contentResponse.body().bytes(), StepShared.class);
+                return Optional.of(stepShared.testCaseId);
+            }
+        }
+        return Optional.empty();
     }
 
     private Long createSharedStep(final TestCaseService testCaseService,
