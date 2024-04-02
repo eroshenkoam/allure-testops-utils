@@ -8,15 +8,12 @@ import java.io.Serializable;
 
 @Data
 @Accessors(chain = true)
-public class GitlabMembership implements Serializable {
+public class GitlabProjects implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @JsonProperty("source_id")
-    private Long sourceId;
-    @JsonProperty("source_type")
-    private String sourceType;
-    @JsonProperty("source_name")
-    private String sourceName;
+    private Long id;
+    private String name;
+    private String path;
 
 }

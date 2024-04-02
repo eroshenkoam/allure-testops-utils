@@ -15,4 +15,13 @@ public interface GitlabService {
     @GET("api/v4/users/{id}/memberships")
     Call<List<GitlabMembership>> getUserMembers(@Path("id") final Long id);
 
+    @GET("api/v4/groups/{id}")
+    Call<GitlabGroup> getGroup(@Path("id") final Long id);
+
+    @GET("api/v4/groups/{id}/subgroups")
+    Call<List<GitlabGroup>> getSubgroups(@Path("id") final Long id);
+
+    @GET("api/v4/groups/{id}/projects")
+    Call<List<Void>> getProjects(@Path("id") final Long id);
+
 }

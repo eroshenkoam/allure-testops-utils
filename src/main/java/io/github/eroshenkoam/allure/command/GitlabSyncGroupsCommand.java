@@ -1,6 +1,7 @@
 package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.eroshenkoam.allure.gitlab.GitlabGroup;
 import io.github.eroshenkoam.allure.gitlab.GitlabMember;
 import io.github.eroshenkoam.allure.gitlab.GitlabMembership;
 import io.github.eroshenkoam.allure.gitlab.GitlabService;
@@ -39,6 +40,13 @@ public class GitlabSyncGroupsCommand extends AbstractSyncGroupsCommand {
     )
     protected String gitlabToken;
 
+    @CommandLine.Option(
+            names = {"--gitlab.create.subgroups"},
+            description = "Create gitlab subgroups",
+            defaultValue = "${env:GITLAB_CREATE_SUBGROUPS}"
+    )
+    protected boolean createSubgroups;
+
     @Override
     public Map<String, List<String>> getGroups(final List<String> usernames) throws IOException {
         final OkHttpClient client = new OkHttpClient.Builder()
@@ -64,15 +72,44 @@ public class GitlabSyncGroupsCommand extends AbstractSyncGroupsCommand {
                 final List<GitlabMembership> memberships = executeRequest(
                         gitlabService.getUserMembers(userResponse.body().get(0).getId())
                 );
-                memberships.stream()
+                final List<Long> groupIds = memberships.stream()
                         .filter(membership -> membership.getSourceType().equals("Namespace"))
-                        .map(GitlabMembership::getSourceName)
-                        .forEach(name -> {
-                            final List<String> users = result.getOrDefault(name, new ArrayList<>());
-                            users.add(username);
-                            result.put(name, users);
-                        });
+                        .map(GitlabMembership::getSourceId)
+                        .toList();
+                for (Long groupId : groupIds) {
+                    final List<GitlabGroup> groups = getAllGroups(gitlabService, groupId, createSubgroups);
+                    for (GitlabGroup group : groups) {
+                        final String groupPath = group.getFullPath();
+                        final List<String> users = result.getOrDefault(groupPath, new ArrayList<>());
+                        users.add(username);
+                        result.put(groupPath, users);
+                    }
+                }
             }
+        }
+        return result;
+    }
+
+    private List<GitlabGroup> getAllGroups(final GitlabService gitlabService,
+                                           final Long groupId,
+                                           final boolean includeSubgroups) throws IOException {
+        final GitlabGroup group = executeRequest(gitlabService.getGroup(groupId));
+
+        final List<GitlabGroup> result = new ArrayList<>();
+        result.add(group);
+        if (includeSubgroups) {
+            result.addAll(getSubgroups(gitlabService, group));
+        }
+        return result;
+    }
+
+    private List<GitlabGroup> getSubgroups(final GitlabService gitlabService,
+                                           final GitlabGroup group) throws IOException {
+        final List<GitlabGroup> result = new ArrayList<>();
+        final List<GitlabGroup> subgroups = executeRequest(gitlabService.getSubgroups(group.getId()));
+        for (GitlabGroup subgroup : subgroups) {
+            result.add(subgroup);
+            result.addAll(getSubgroups(gitlabService, subgroup));
         }
         return result;
     }
