@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04	
     steps:
       - uses: actions/checkout@v1
       - uses: graalvm/setup-graalvm@v1
@@ -25,3 +25,7 @@ jobs:
           push: false
           context: build/docker
           tags: ghcr.io/eroshenkoam/allure-testops-utils
+      - uses: actions/upload-artifact@v3
+        with:
+          name: allure-testops-utils
+          retention-days: 5
