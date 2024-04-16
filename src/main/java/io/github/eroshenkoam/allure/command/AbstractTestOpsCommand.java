@@ -1,8 +1,10 @@
 package io.github.eroshenkoam.allure.command;
 
 import io.qameta.allure.ee.client.ServiceBuilder;
+import io.qameta.allure.ee.client.SharedStepService;
 import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.dto.Page;
+import io.qameta.allure.ee.client.dto.SharedStep;
 import io.qameta.allure.ee.client.dto.TestCase;
 import picocli.CommandLine;
 import retrofit2.Call;
@@ -70,6 +72,21 @@ public abstract class AbstractTestOpsCommand implements Runnable {
                     service.findByRql(projectId, filter, current.getNumber() + 1, 100)
             );
             for (TestCase item : current.getContent()) {
+                testCases.add(item.getId());
+            }
+        } while (current.getNumber() < current.getTotalPages());
+        return testCases;
+    }
+
+    protected List<Long> getSharedSteps(final SharedStepService service,
+                                        final Long projectId) throws IOException {
+        final List<Long> testCases = new ArrayList<>();
+        Page<SharedStep> current = new Page<SharedStep>().setNumber(-1);
+        do {
+            current = executeRequest(
+                    service.findAll(projectId, null, false, current.getNumber() + 1, 100)
+            );
+            for (SharedStep item : current.getContent()) {
                 testCases.add(item.getId());
             }
         } while (current.getNumber() < current.getTotalPages());
