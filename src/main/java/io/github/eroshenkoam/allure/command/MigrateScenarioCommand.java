@@ -50,7 +50,7 @@ public class MigrateScenarioCommand extends AbstractTestOpsCommand {
                                 final TestCaseScenarioService tcScenarioService,
                                 final Long projectId) throws Exception {
         final List<Long> testCaseIds = getTestCases(tcService, projectId, "true");
-        invokeParallel("migrate project shared steps", testCaseIds, (id) -> {
+        invokeParallel("migrate project scenario", testCaseIds, (id) -> {
             System.out.printf("Migrating test case with id %s\n", id);
             executeRequest(tcScenarioService.migrateScenario(id));
         });
