@@ -38,6 +38,16 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
 
 ## Migrations
 
+### Scenario
+
+```shell
+docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
+           -e "ALLURE_USERNAME=admin" \
+           -e "ALLURE_PASSWORD=admin" \
+           -e "ALLURE_PROJECT_ID=1,2" \
+           ghcr.io/eroshenkoam/allure-testops-utils migrate-scenario
+```
+
 ### Expected Results
 
 ```shell
