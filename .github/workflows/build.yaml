@@ -6,7 +6,7 @@ on:
       - '*'
   push:
     branches:
-      - 'master'
+      - 'migrate-for-ms'
 
 jobs:
   build:
@@ -20,6 +20,11 @@ jobs:
       - run: ./gradlew build
       - run: ./gradlew nativeCompile
       - run: ./gradlew prepareDockerfile
+      - uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.PACKAGES_USER }}
+          password: ${{ secrets.PACKAGES_PASS }}
       - uses: docker/build-push-action@v2
         with:
           push: true
