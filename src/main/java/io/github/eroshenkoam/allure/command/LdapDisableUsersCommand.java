@@ -124,5 +124,4 @@ public class LdapDisableUsersCommand extends AbstractDisableUsersCommand {
         source.afterPropertiesSet();
         return new LdapTemplate(source);
     }
-
 }
