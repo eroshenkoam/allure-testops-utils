@@ -31,6 +31,7 @@ import okhttp3.ResponseBody;
 import picocli.CommandLine;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -70,11 +71,18 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private static final String RQL_TEST_CASE = "not layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]";
     private static final String RQL_SHARED_STEP = "layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]";
 
+    private static final Pattern HEADER_PATTERN =
+            Pattern.compile("#+ (?<text>.+)");
+    private static final Pattern LIST_ITEM_PATTERN =
+            Pattern.compile("(?<spaces>[ \\t]*)([*\\-]) (?<text>.+)");
+    private static final Pattern TABLE_PATTERN =
+            Pattern.compile("^[ \\t]*\\|(.*\\|)+$");
+
     private static final Pattern ATTACHMENT_PATTERN =
             Pattern.compile("!\\[(.*)]\\(/api/rs/testcase/attachment/(?<id>\\d*)/content\\)");
 
     private static final Pattern EXPECTED_PATTERN =
-            Pattern.compile("\\{\"action\":\"(?<action>.*)\",\"expected\":\"(?<expected>.*)");
+            Pattern.compile("\\{\"action\":\"(?<action>.*)\",\"expected\":\"(?<expected>.*)(\"})+");
 
     private static final Integer PAGE_SIZE = 1000;
 
@@ -104,7 +112,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     @Override
     public void runUnsafe(final ServiceBuilder builder) throws Exception {
-        final Map<String,List<Long>> timingMeta = new ConcurrentHashMap<>();
+        final Map<String, List<Long>> timingMeta = new ConcurrentHashMap<>();
 
         builder.withInterceptor(getTimingCollector(timingMeta));
         builder.withDispatcher(getConcurentDispatcher());
@@ -265,7 +273,9 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         final StepExpected customStep = possibleCustomStep.get();
         final boolean withAction = !customStep.getAction().isBlank();
         if (withAction) {
-            final List<ScenarioStepCreate> action = normalize(getStepsFromText(customStep.getAction(), testCaseId));
+            final List<ScenarioStepCreate> action = getStepsFromText(
+                    scenarioService, customStep.getAction(), testCaseId
+            );
             final ScenarioStepUpdate update = new ScenarioStepUpdate()
                     .setBody(action.get(0).getBody());
             final boolean withExpectedResult = Objects.nonNull(customStep.getExpected())
@@ -281,8 +291,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             if (withExpectedResult) {
                 final Long expectedResultId = updatedScenario.getScenarioSteps().get(step.getId())
                         .getExpectedResultId();
-                final List<ScenarioStepCreate> expectedResult = normalize(
-                        getStepsFromText(customStep.getExpected(), testCaseId)
+                final List<ScenarioStepCreate> expectedResult = getStepsFromText(
+                        scenarioService, customStep.getExpected(), testCaseId
                 );
                 for (ScenarioStepCreate subStep : expectedResult) {
                     executeRequest(scenarioService.createStep(subStep.setParentId(expectedResultId), null, null));
@@ -470,21 +480,59 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         }
     }
 
-    private List<ScenarioStepCreate> normalize(final List<ScenarioStepCreate> steps) {
+    private static List<ScenarioStepCreate> getStepsFromText(final TestCaseScenarioService tcScenarioService,
+                                                             final String text,
+                                                             final Long testCaseId) throws IOException {
         final List<ScenarioStepCreate> result = new ArrayList<>();
-        if (!steps.isEmpty()) {
-            result.add(steps.get(0));
-            for (int i = 1; i < steps.size(); i++) {
-                final ScenarioStepCreate current = steps.get(i);
-                if (Objects.nonNull(current.getAttachmentId())) {
+        final List<ParsedLine> parsedLines = getParsedLines(text);
+        for (final ParsedLine line : parsedLines) {
+            final ScenarioStepCreate create = new ScenarioStepCreate()
+                    .setTestCaseId(testCaseId);
+            switch (line.getType()) {
+                case CONTENT -> create.setBody(line.getContent());
+                case ATTACHMENT -> create.setAttachmentId(Long.parseLong(line.getContent()));
+                case TABLE -> {
+                    final Long attachmentId = createTable(tcScenarioService, line.getContent(), testCaseId);
+                    create.setAttachmentId(attachmentId);
+                }
+            }
+            result.add(create);
+        }
+        return result;
+    }
+
+    private static List<ParsedLine> getParsedLines(final String text) {
+        final String preparedText = Optional.ofNullable(text)
+                .orElse("empty");
+        final List<ParsedLine> lines = Arrays.stream(preparedText.split("\n"))
+                .filter(s -> !s.isBlank())
+                .map(MigrateTestCasesCommand::parseLine)
+                .toList();
+        return collectLines(lines);
+    }
+
+    private static List<ParsedLine> collectLines(final List<ParsedLine> lines) {
+        final List<ParsedLine> result = new ArrayList<>();
+        if (!lines.isEmpty()) {
+            LineType type = lines.get(0).getType();
+            result.add(lines.get(0));
+            for (int i = 1; i < lines.size(); i++) {
+                final ParsedLine current = lines.get(i);
+                if (current.getType().equals(LineType.ATTACHMENT)) {
                     result.add(current);
                 } else {
-                    final ScenarioStepCreate last = result.get(result.size() - 1);
-                    if (Objects.nonNull(last.getAttachmentId())) {
-                        result.add(current);
+                    final ParsedLine lastLine = result.get(result.size() - 1);
+                    if (current.getType().equals(type)) {
+                        lastLine.setContent(String.format("%s\n%s", lastLine.getContent(), current.getContent()));
                     } else {
-                        final String body = String.format("%s\n%s", last.getBody(), current.getBody());
-                        result.set(result.size() - 1, last.setBody(body));
+                        if (lastLine.getType().equals(LineType.CONTENT)) {
+                            lastLine.setContent(lastLine.getContent());
+                        }
+                        type = current.getType();
+                        final ParsedLine newLine = new ParsedLine()
+                                .setType(current.getType())
+                                .setContent(current.getContent());
+                        result.add(newLine);
                     }
                 }
             }
@@ -492,39 +540,57 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         return result;
     }
 
-    private ScenarioStepCreate convert(final ScenarioStep step, final Long testCaseId) {
-        return new ScenarioStepCreate()
-                .setBody(step.getBody())
-                .setTestCaseId(testCaseId)
-                .setAttachmentId(step.getAttachmentId())
-                .setSharedStepId(step.getSharedStepId());
-    }
-
-    private List<ScenarioStepCreate> getStepsFromText(final String text,
-                                                      final Long testCaseId) {
-        final String preparedText = Optional.ofNullable(text)
-                .orElse("empty");
-        final List<ScenarioStepCreate> creates = new ArrayList<>();
-        final List<String> lines = Arrays.stream(preparedText.split("\n"))
-                .filter(s -> !s.isBlank())
-                .toList();
-        for (String line : lines) {
-            final Matcher matcher = ATTACHMENT_PATTERN.matcher(line);
-            if (matcher.matches()) {
-                final Long attachmentId = Long.parseLong(matcher.group("id"));
-                creates.add(new ScenarioStepCreate()
-                        .setAttachmentId(attachmentId)
-                        .setTestCaseId(testCaseId));
-            } else {
-                creates.add(new ScenarioStepCreate()
-                        .setBody(line)
-                        .setTestCaseId(testCaseId));
-            }
+    private static ParsedLine parseLine(final String line) {
+        final Matcher attachmentMatcher = ATTACHMENT_PATTERN.matcher(line);
+        if (attachmentMatcher.matches()) {
+            final Long attachmentId = Long.parseLong(attachmentMatcher.group("id"));
+            return new ParsedLine()
+                    .setContent(attachmentId.toString())
+                    .setType(LineType.ATTACHMENT);
         }
-        return creates;
+        final Matcher headerMatcher = HEADER_PATTERN.matcher(line);
+        if (headerMatcher.matches()) {
+            final String text = headerMatcher.group("text");
+            return new ParsedLine()
+                    .setType(LineType.CONTENT)
+                    .setContent(String.format("**%s**", text));
+        }
+        final Matcher listItemMatcher = LIST_ITEM_PATTERN.matcher(line);
+        if (listItemMatcher.matches()) {
+            final String text = listItemMatcher.group("text");
+            final String spaces = listItemMatcher.group("spaces");
+            return new ParsedLine()
+                    .setType(LineType.CONTENT)
+                    .setContent(String.format("%s- %s", spaces, text));
+        }
+        final Matcher tableMatcher = TABLE_PATTERN.matcher(line);
+        if (tableMatcher.matches()) {
+            final String csv = line.trim().substring(1, line.length() - 2).replace("|", ",");
+            return new ParsedLine()
+                    .setType(LineType.TABLE)
+                    .setContent(csv);
+        }
+        return new ParsedLine()
+                .setType(LineType.CONTENT)
+                .setContent(line);
     }
 
-    private Map<Long, String> getAllProjects(final ProjectService service) throws IOException {
+    private static Long createTable(final TestCaseScenarioService tcService,
+                                    final String content,
+                                    final Long testCaseId) throws IOException {
+        final RequestBody requestBody = RequestBody.create(
+                MediaType.parse("text/csv"),
+                content.getBytes(StandardCharsets.UTF_8)
+        );
+        final MultipartBody.Part create = MultipartBody.Part
+                .createFormData("file", "Table", requestBody);
+        final List<TestCaseAttachment> createdAttachment = executeRequest(
+                tcService.createAttachment(testCaseId, Arrays.asList(create))
+        );
+        return createdAttachment.get(0).getId();
+    }
+
+    private static Map<Long, String> getAllProjects(final ProjectService service) throws IOException {
         final Map<Long, String> result = new HashMap<>();
         Page<Project> current = new Page<Project>().setNumber(-1);
         do {
@@ -536,9 +602,9 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         return result;
     }
 
-    private Map<Long, String> getAllTestCases(final TestCaseService service,
-                                              final Long projectId,
-                                              final String filter) throws IOException {
+    private static Map<Long, String> getAllTestCases(final TestCaseService service,
+                                                     final Long projectId,
+                                                     final String filter) throws IOException {
         final Map<Long, String> result = new HashMap<>();
         Page<TestCase> current = new Page<TestCase>().setNumber(-1);
         do {
@@ -557,7 +623,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         return result;
     }
 
-    private Optional<StepExpected> readStepExpected(final String content) {
+    private static Optional<StepExpected> readStepExpected(final String content) {
         try {
             return Optional.of(MAPPER.readValue(content, StepExpected.class));
         } catch (IOException e) {
@@ -653,6 +719,19 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     private int getTreadCount() {
         return Optional.ofNullable(threadCount).orElse(10);
+    }
+
+    private enum LineType {
+        TABLE,
+        ATTACHMENT,
+        CONTENT
+    }
+
+    @Data
+    @Accessors(chain = true)
+    private static class ParsedLine {
+        private LineType type;
+        private String content;
     }
 
     @Data

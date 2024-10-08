@@ -6,7 +6,7 @@ on:
       - '*'
   push:
     branches:
-      - 'migrate-for-ms'
+      - 'migrate-for-nx'
 
 jobs:
   build:
