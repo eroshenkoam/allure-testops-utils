@@ -514,21 +514,19 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private static List<ParsedLine> collectLines(final List<ParsedLine> lines) {
         final List<ParsedLine> result = new ArrayList<>();
         if (!lines.isEmpty()) {
-            LineType type = lines.get(0).getType();
             result.add(lines.get(0));
             for (int i = 1; i < lines.size(); i++) {
                 final ParsedLine current = lines.get(i);
+                final ParsedLine prevLine = result.get(result.size() - 1);
                 if (current.getType().equals(LineType.ATTACHMENT)) {
                     result.add(current);
                 } else {
-                    final ParsedLine lastLine = result.get(result.size() - 1);
-                    if (current.getType().equals(type)) {
-                        lastLine.setContent(String.format("%s\n%s", lastLine.getContent(), current.getContent()));
+                    if (current.getType().equals(prevLine.getType())) {
+                        prevLine.setContent(String.format("%s\n%s", prevLine.getContent(), current.getContent()));
                     } else {
-                        if (lastLine.getType().equals(LineType.CONTENT)) {
-                            lastLine.setContent(lastLine.getContent());
+                        if (prevLine.getType().equals(LineType.CONTENT)) {
+                            prevLine.setContent(prevLine.getContent());
                         }
-                        type = current.getType();
                         final ParsedLine newLine = new ParsedLine()
                                 .setType(current.getType())
                                 .setContent(current.getContent());
