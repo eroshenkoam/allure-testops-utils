@@ -28,6 +28,7 @@ import okhttp3.MultipartBody;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
+import org.apache.commons.lang3.StringEscapeUtils;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -506,6 +507,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                 .orElse("empty");
         final List<ParsedLine> lines = Arrays.stream(preparedText.split("\n"))
                 .filter(s -> !s.isBlank())
+                .map(StringEscapeUtils::unescapeJson)
                 .map(MigrateTestCasesCommand::parseLine)
                 .toList();
         return collectLines(lines);

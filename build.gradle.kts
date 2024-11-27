@@ -73,6 +73,7 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
 
     implementation("joda-time:joda-time:2.12.5")
+    implementation("org.apache.commons:commons-text:1.12.0")
 
     implementation("io.qameta.allure:allure-model:2.24.0")
     implementation("io.qameta.allure:allure-ee-client:3.53.0")
