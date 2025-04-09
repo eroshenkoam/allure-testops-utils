@@ -20,6 +20,11 @@ jobs:
           cache: 'gradle'
       - run: ./gradlew build
       - run: ./gradlew prepareDockerfile
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.PACKAGES_USER }}
+          password: ${{ secrets.PACKAGES_PASS }}
       - uses: docker/build-push-action@v5
         with:
           push: true

@@ -15,9 +15,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -128,7 +128,7 @@ public abstract class AbstractTestOpsCommand implements Runnable {
 
 
     protected boolean invokeParallel(final String description,
-                                     final Collection<Long> ids,
+                                     final Set<Long> ids,
                                      final Consumer<Long> task) throws Exception {
         System.out.printf("Starting task '%s'\n", description);
 

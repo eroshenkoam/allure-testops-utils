@@ -6,14 +6,16 @@ import io.github.eroshenkoam.allure.client.TestCaseScenarioService;
 import io.github.eroshenkoam.allure.client.TestCaseService;
 import io.github.eroshenkoam.allure.client.dto.Page;
 import io.github.eroshenkoam.allure.client.dto.Project;
-import picocli.CommandLine;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+
+import picocli.CommandLine;
 
 @CommandLine.Command(
         name = "migrate-scenario", mixinStandardHelpOptions = true,
@@ -49,7 +51,7 @@ public class MigrateScenarioCommand extends AbstractTestOpsCommand {
     private void migrateProject(final TestCaseService tcService,
                                 final TestCaseScenarioService tcScenarioService,
                                 final Long projectId) throws Exception {
-        final List<Long> testCaseIds = getTestCases(tcService, projectId, "true");
+        final Set<Long> testCaseIds = new HashSet<>(getTestCases(tcService, projectId, "true"));
         invokeParallel("migrate project scenario", testCaseIds, (id) -> {
             System.out.printf("Migrating test case with id %s\n", id);
             executeRequest(tcScenarioService.migrateScenario(id));
