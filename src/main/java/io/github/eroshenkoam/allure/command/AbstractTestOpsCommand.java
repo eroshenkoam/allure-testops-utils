@@ -1,5 +1,17 @@
 package io.github.eroshenkoam.allure.command;
 
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.SharedStepService;
 import io.qameta.allure.ee.client.TestCaseService;
@@ -10,18 +22,6 @@ import okhttp3.Dispatcher;
 import picocli.CommandLine;
 import retrofit2.Call;
 import retrofit2.Response;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 public abstract class AbstractTestOpsCommand implements Runnable {
 
@@ -128,7 +128,7 @@ public abstract class AbstractTestOpsCommand implements Runnable {
 
 
     protected boolean invokeParallel(final String description,
-                                     final Collection<Long> ids,
+                                     final Set<Long> ids,
                                      final Consumer<Long> task) throws Exception {
         System.out.printf("Starting task '%s'\n", description);
 

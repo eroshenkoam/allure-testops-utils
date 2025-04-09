@@ -653,46 +653,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         MAPPER.writeValue(file.toFile(), type);
     }
 
-    private boolean invokeParallel(final String description,
-                                   final Set<Long> testCaseIds,
-                                   final Consumer<Long> task) throws Exception {
-        System.out.printf("Starting task '%s'\n", description);
-
-        final Instant startTime = Instant.now();
-        final ExecutorService executor = Executors.newFixedThreadPool(getTreadCount());
-        final List<Callable<Boolean>> tasks = new ArrayList<>();
-        for (Long testCaseId : testCaseIds) {
-            tasks.add(() -> {
-                try {
-                    task.accept(testCaseId);
-                    return true;
-                } catch (Throwable e) {
-                    return false;
-                }
-            });
-        }
-        try {
-            final List<Future<Boolean>> results = executor.invokeAll(tasks);
-            int errorsCount = 0;
-            for (Future<Boolean> fr : results) {
-                boolean success = fr.get();
-                if (!success) {
-                    errorsCount++;
-                }
-            }
-            final Instant endTime = Instant.now();
-            System.out.printf(
-                    "Finishing task '%s' (%s) with %s errors\n",
-                    description,
-                    Duration.between(startTime, endTime),
-                    errorsCount
-            );
-        } finally {
-            executor.shutdown();
-        }
-        return true;
-    }
-
     private Dispatcher getConcurentDispatcher() {
         final int threads = getTreadCount();
         Dispatcher dispatcher = new Dispatcher(Executors.newFixedThreadPool(threads));
@@ -715,10 +675,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                 timingMeta.put(url, times);
             }
         };
-    }
-
-    private int getTreadCount() {
-        return Optional.ofNullable(threadCount).orElse(10);
     }
 
     private enum LineType {
