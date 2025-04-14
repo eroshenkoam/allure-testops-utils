@@ -76,5 +76,5 @@ dependencies {
     implementation("org.apache.commons:commons-text:1.12.0")
 
     implementation("io.qameta.allure:allure-model:2.24.0")
-    implementation("io.qameta.allure:allure-ee-client:3.53.0")
+    implementation("io.qameta.allure:allure-ee-client:3.54.0")
 }
