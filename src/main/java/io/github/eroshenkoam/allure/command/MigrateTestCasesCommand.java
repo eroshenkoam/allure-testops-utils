@@ -2,6 +2,7 @@ package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.eroshenkoam.allure.textmarkup.MarkdownToJsonConverter;
 import io.qameta.allure.ee.client.ProjectService;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.SharedStepScenarioService;
@@ -29,14 +30,13 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 import picocli.CommandLine;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -46,11 +46,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -263,24 +260,28 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private void migrateExpectedStep(final TestCaseScenarioService scenarioService,
                                      final ScenarioStep step,
                                      final Long testCaseId) throws IOException {
-        final String name = step.getBody();
+        final String name = StringUtils.trimToNull(step.getBody());
         if (!(Objects.nonNull(name) && name.startsWith("expected"))) {
             return;
         }
-        final Optional<StepExpected> possibleCustomStep = readStepExpected(name.replaceFirst("expected", "").trim());
+        final Optional<StepExpected> possibleCustomStep = readStepExpected(
+                StringUtils.trimToNull(name.replaceFirst("expected", "")));
         if (possibleCustomStep.isEmpty()) {
             return;
         }
         final StepExpected customStep = possibleCustomStep.get();
-        final boolean withAction = !customStep.getAction().isBlank();
-        if (withAction) {
+        final boolean blankStep = StringUtils.isBlank(customStep.getAction())
+                && StringUtils.isBlank(customStep.getExpected());
+        if (blankStep) {
+            executeRequest(scenarioService.deleteStep(step.getId()));
+        } else {
             final List<ScenarioStepCreate> action = getStepsFromText(
-                    scenarioService, customStep.getAction(), testCaseId
+                    scenarioService, StringUtils.defaultIfBlank(customStep.getAction(), "Action"), testCaseId
             );
             final ScenarioStepUpdate update = new ScenarioStepUpdate()
-                    .setBody(action.get(0).getBody());
-            final boolean withExpectedResult = Objects.nonNull(customStep.getExpected())
-                    && !customStep.getExpected().isBlank();
+                    .setBody(action.getFirst().getBody())
+                    .setBodyJson(action.getFirst().getBodyJson());
+            final boolean withExpectedResult = StringUtils.isNotBlank(customStep.getExpected());
             final ScenarioNormalized updatedScenario = executeRequest(
                     scenarioService.updateStep(step.getId(), update, withExpectedResult)
             );
@@ -299,8 +300,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                     executeRequest(scenarioService.createStep(subStep.setParentId(expectedResultId), null, null));
                 }
             }
-        } else {
-            executeRequest(scenarioService.deleteStep(step.getId()));
         }
     }
 
@@ -490,7 +489,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             final ScenarioStepCreate create = new ScenarioStepCreate()
                     .setTestCaseId(testCaseId);
             switch (line.getType()) {
-                case CONTENT -> create.setBody(line.getContent());
+                case CONTENT -> create.setBody(line.getContent())
+                                        .setBodyJson(MarkdownToJsonConverter.convertToJson(line.getContent()));
                 case ATTACHMENT -> create.setAttachmentId(Long.parseLong(line.getContent()));
                 case TABLE -> {
                     final Long attachmentId = createTable(tcScenarioService, line.getContent(), testCaseId);
@@ -516,7 +516,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private static List<ParsedLine> collectLines(final List<ParsedLine> lines) {
         final List<ParsedLine> result = new ArrayList<>();
         if (!lines.isEmpty()) {
-            result.add(lines.get(0));
+            result.add(lines.getFirst());
             for (int i = 1; i < lines.size(); i++) {
                 final ParsedLine current = lines.get(i);
                 final ParsedLine prevLine = result.get(result.size() - 1);
@@ -543,9 +543,9 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private static ParsedLine parseLine(final String line) {
         final Matcher attachmentMatcher = ATTACHMENT_PATTERN.matcher(line);
         if (attachmentMatcher.matches()) {
-            final Long attachmentId = Long.parseLong(attachmentMatcher.group("id"));
+            final long attachmentId = Long.parseLong(attachmentMatcher.group("id"));
             return new ParsedLine()
-                    .setContent(attachmentId.toString())
+                    .setContent(Long.toString(attachmentId))
                     .setType(LineType.ATTACHMENT);
         }
         final Matcher headerMatcher = HEADER_PATTERN.matcher(line);

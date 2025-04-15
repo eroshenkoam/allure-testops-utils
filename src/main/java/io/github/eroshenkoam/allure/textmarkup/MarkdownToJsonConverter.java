@@ -30,9 +30,8 @@ public class MarkdownToJsonConverter {
      *
      * @param markdown The Markdown text to convert
      * @return JSON string representation of the Markdown
-     * @throws Exception if conversion fails
      */
-    public static TextMarkupDocument convertToJson(final String markdown) throws Exception {
+    public static TextMarkupDocument convertToJson(final String markdown) {
         final DefaultTextMarkupDocument document = new DefaultTextMarkupDocument();
         final List<DocumentNode> content = new ArrayList<>();
         document.setContent(content);
