@@ -95,13 +95,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     protected List<Long> allureProjectIds;
 
     @CommandLine.Option(
-            names = {"--thread.count"},
-            description = "Thread count",
-            defaultValue = "${env:THREAD_COUNT}"
-    )
-    protected Integer threadCount;
-
-    @CommandLine.Option(
             names = {"--meta.path"},
             description = "Meta information path",
             defaultValue = "${env:META_PATH}"
