@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.eroshenkoam.allure.textmarkup.MarkdownToJsonConverter;
 import io.qameta.allure.ee.client.ProjectService;
 import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.SharedStepScenarioService;
-import io.qameta.allure.ee.client.SharedStepService;
 import io.qameta.allure.ee.client.TestCaseScenarioService;
 import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.dto.Page;
@@ -16,8 +14,6 @@ import io.qameta.allure.ee.client.dto.ScenarioStep;
 import io.qameta.allure.ee.client.dto.ScenarioStepCreate;
 import io.qameta.allure.ee.client.dto.ScenarioStepResponse;
 import io.qameta.allure.ee.client.dto.ScenarioStepUpdate;
-import io.qameta.allure.ee.client.dto.SharedStepAttachment;
-import io.qameta.allure.ee.client.dto.SharedStepCreate;
 import io.qameta.allure.ee.client.dto.TestCase;
 import io.qameta.allure.ee.client.dto.TestCaseAttachment;
 import lombok.Data;
@@ -64,10 +60,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     private static final String META_PROJECTS = "projects.json";
     private static final String META_TIMINGS = "timings.json";
-    private static final String META_STEPS = "steps.json";
-
     private static final String RQL_TEST_CASE = "not layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]";
-    private static final String RQL_SHARED_STEP = "layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]";
 
     private static final Pattern HEADER_PATTERN =
             Pattern.compile("#+ (?<text>.+)");
@@ -110,8 +103,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
         final TestCaseService tcService = builder.create(TestCaseService.class);
         final TestCaseScenarioService tcScenarioService = builder.create(TestCaseScenarioService.class);
-        final SharedStepService ssService = builder.create(SharedStepService.class);
-        final SharedStepScenarioService ssScenarioService = builder.create(SharedStepScenarioService.class);
 
         // @formatter:off
         final Map<Long, Boolean> projectMeta = readMeta(META_PROJECTS, new TypeReference<Map<Long, Boolean>>() {})
@@ -131,7 +122,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             } else {
                 System.out.printf("Migrate project with id '%s'\n", projectId);
                 migrateProject(
-                        tcService, tcScenarioService, ssService, ssScenarioService, projectId
+                        tcService, tcScenarioService, projectId
                 );
                 projectMeta.put(projectId, true);
             }
@@ -142,21 +133,10 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     private void migrateProject(final TestCaseService tcService,
                                 final TestCaseScenarioService tcScenarioService,
-                                final SharedStepService ssService,
-                                final SharedStepScenarioService ssScenarioService,
                                 final Long projectId) throws Exception {
         final Set<Long> testCasesIds = getAllTestCases(tcService, projectId, RQL_TEST_CASE).keySet();
-        final Set<Long> sharedStepsIds = getAllTestCases(tcService, projectId, RQL_SHARED_STEP).keySet();
 
-        final Set<Long> allIds = Stream.concat(testCasesIds.stream(), sharedStepsIds.stream())
-                .collect(Collectors.toSet());
-
-        migrateProjectTestCases(tcScenarioService, allIds, projectId);
-        final Map<Long, Long> sharedSteps = migrateProjectSharedSteps(
-                tcService, ssService, tcScenarioService, ssScenarioService, sharedStepsIds, projectId
-        );
-        migrateProjectSharedSteps(tcScenarioService, sharedSteps, testCasesIds, projectId);
-        deleteProjectSharedSteps(tcService, sharedSteps, projectId);
+        migrateProjectTestCases(tcScenarioService, testCasesIds, projectId);
     }
 
     private void migrateProjectTestCases(final TestCaseScenarioService tcScenarioService,
@@ -167,78 +147,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             executeRequest(tcScenarioService.migrateScenario(id));
             migrateExpectedSteps(tcScenarioService, id);
         });
-    }
-
-    private void migrateProjectSharedSteps(final TestCaseScenarioService tcScenarioService,
-                                           final Map<Long, Long> sharedSteps,
-                                           final Set<Long> testCaseIds,
-                                           final Long projectId) throws Exception {
-        System.out.printf("Found information about %d test cases\n", testCaseIds.size());
-        invokeParallel(String.format("[%d] migrate project shared steps", projectId), testCaseIds, (id) -> {
-            migrateSharedSteps(tcScenarioService, id, sharedSteps);
-        });
-    }
-
-    private void deleteProjectSharedSteps(final TestCaseService tcService,
-                                          final Map<Long, Long> sharedSteps,
-                                          final Long projectId) throws Exception {
-        System.out.printf("Delete old %d shared steps\n", sharedSteps.size());
-        invokeParallel(String.format("[%d] delete old shared steps", projectId), sharedSteps.keySet(), (id) -> {
-            executeRequest(tcService.delete(id));
-        });
-    }
-
-    private Map<Long, Long> migrateProjectSharedSteps(final TestCaseService tcService,
-                                                      final SharedStepService ssService,
-                                                      final TestCaseScenarioService tcScenarioService,
-                                                      final SharedStepScenarioService ssScenarioService,
-                                                      final Set<Long> sharedStepIds,
-                                                      final Long projectId) throws Exception {
-        // @formatter:off
-        final Map<Long, Long> stepsMeta = readMeta(META_STEPS, new TypeReference<Map<Long, Long>>() {})
-                .orElseGet(HashMap::new);
-        // @formatter:on
-
-        final Map<Long, Long> steps = new ConcurrentHashMap<>();
-        System.out.printf("Found information about %d shared steps\n", sharedStepIds.size());
-        invokeParallel(String.format("[%d] migrate shared steps", projectId), sharedStepIds, (testCaseId) -> {
-            final Long sharedStepId = migrateSharedStep(
-                    tcService,
-                    ssService,
-                    tcScenarioService,
-                    ssScenarioService,
-                    stepsMeta,
-                    testCaseId,
-                    projectId
-            );
-            steps.put(testCaseId, sharedStepId);
-        });
-        stepsMeta.putAll(steps);
-        writeMeta(META_STEPS, stepsMeta);
-
-        return steps;
-    }
-
-    private Long migrateSharedStep(final TestCaseService tcService,
-                                   final SharedStepService ssService,
-                                   final TestCaseScenarioService tcScenarioService,
-                                   final SharedStepScenarioService ssScenarioService,
-                                   final Map<Long, Long> stepsMeta,
-                                   final Long testCaseId,
-                                   final Long projectId) throws Exception {
-        final Optional<Long> existingStep = Optional.ofNullable(stepsMeta.get(testCaseId));
-        if (existingStep.isPresent()) {
-            final Long sharedStepId = existingStep.get();
-            System.out.printf("Found existing shared step %s = %s\n", testCaseId, sharedStepId);
-            copySharedStepScenario(tcScenarioService, ssScenarioService, testCaseId, sharedStepId);
-            return sharedStepId;
-        } else {
-            System.out.printf("Migrating shared step with id %s\n", testCaseId);
-            final Long sharedStepId = createSharedStep(tcService, ssService, testCaseId, projectId);
-            copySharedStepScenario(tcScenarioService, ssScenarioService, testCaseId, sharedStepId);
-            System.out.printf("Shared step successfully migrated with id %s\n", sharedStepId);
-            return sharedStepId;
-        }
     }
 
     private void migrateExpectedSteps(final TestCaseScenarioService scenarioService,
@@ -296,182 +204,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         }
     }
 
-    private void migrateSharedSteps(final TestCaseScenarioService scenarioService,
-                                    final Long testCaseId,
-                                    final Map<Long, Long> sharedSteps) throws Exception {
-        final ScenarioNormalized scenario = executeRequest(scenarioService.getScenario(testCaseId));
-        final Collection<ScenarioStep> steps = scenario.getScenarioSteps().values();
-        for (ScenarioStep step : steps) {
-            final String name = step.getBody();
-            if (Objects.nonNull(name) && name.startsWith("shared")) {
-                final StepShared customStep = MAPPER.readValue(
-                        name.replaceFirst("shared", "").trim(), StepShared.class
-                );
-                final ScenarioStepUpdate update = new ScenarioStepUpdate()
-                        .setBody(null)
-                        .setExpectedResult(null)
-                        .setAttachmentId(null)
-                        .setSharedStepId(sharedSteps.get(customStep.getTestCaseId()));
-                executeRequest(scenarioService.updateStep(step.getId(), update));
-            }
-        }
-    }
-
-    private Long createSharedStep(final TestCaseService testCaseService,
-                                  final SharedStepService sharedStepService,
-                                  final Long testCaseId,
-                                  final Long projectId) throws Exception {
-        final TestCase testCase = executeRequest(testCaseService.findById(testCaseId));
-        final SharedStepCreate createRequest = new SharedStepCreate()
-                .setName(testCase.getName())
-                .setProjectId(projectId);
-        return executeRequest(sharedStepService.createStep(createRequest)).getId();
-    }
-
-    private void copySharedStepScenario(final TestCaseScenarioService tcScenarioService,
-                                        final SharedStepScenarioService ssScenarioService,
-                                        final Long testCaseId,
-                                        final Long sharedStepId) throws Exception {
-        final ScenarioNormalized scenario = executeRequest(tcScenarioService.getScenario(testCaseId));
-        deleteSharedStepContent(ssScenarioService, sharedStepId);
-        final Map<Long, Long> attachments = copySharedStepAttachments(
-                tcScenarioService, ssScenarioService, testCaseId, sharedStepId
-        );
-
-        final ScenarioStep root = scenario.getRoot();
-        copySharedStepSteps(
-                ssScenarioService,
-                scenario.getScenarioSteps(),
-                attachments,
-                sharedStepId,
-                root.getChildren(),
-                null
-        );
-    }
-
-    private void deleteSharedStepContent(final SharedStepScenarioService ssScenarioService,
-                                         final Long sharedStepId) throws Exception {
-        final ScenarioNormalized scenario = executeRequest(ssScenarioService.getScenario(sharedStepId));
-        if (Objects.nonNull(scenario.getRoot().getChildren())) {
-            for (Long stepId : scenario.getRoot().getChildren()) {
-                executeRequest(ssScenarioService.deleteStep(stepId));
-            }
-        }
-        final Page<SharedStepAttachment> attachmentsPage = executeRequest(
-                ssScenarioService.getAttachments(sharedStepId, 0, 1000)
-        );
-        if (Objects.nonNull(attachmentsPage)) {
-            final List<Long> attachments = attachmentsPage.getContent().stream()
-                    .map(SharedStepAttachment::getId)
-                    .toList();
-            for (Long attachmentId : attachments) {
-                executeRequest(ssScenarioService.deleteAttachment(attachmentId));
-            }
-        }
-    }
-
-    private Map<Long, Long> copySharedStepAttachments(final TestCaseScenarioService tcScenarioService,
-                                                      final SharedStepScenarioService ssScenarioService,
-                                                      final Long testCaseId,
-                                                      final Long sharedStepId) throws Exception {
-        final Map<Long, Long> result = new HashMap<>();
-
-        final Page<TestCaseAttachment> attachmentsPage = executeRequest(
-                tcScenarioService.getAttachments(testCaseId, 0, 1000)
-        );
-        final List<TestCaseAttachment> attachments = attachmentsPage.getContent();
-        for (TestCaseAttachment attachment : attachments) {
-            final Optional<Long> copiedAttachmentId = copSharedStepAttachment(
-                    tcScenarioService, ssScenarioService, attachment, sharedStepId
-            );
-            copiedAttachmentId.ifPresent(id -> result.put(attachment.getId(), id));
-        }
-        return result;
-    }
-
-    private Optional<Long> copSharedStepAttachment(final TestCaseScenarioService tcScenarioService,
-                                                   final SharedStepScenarioService ssScenarioService,
-                                                   final TestCaseAttachment attachment,
-                                                   final Long sharedStepId) {
-        try (ResponseBody content = executeRequest(tcScenarioService.getAttachmentContent(attachment.getId()))) {
-            final RequestBody requestBody = RequestBody.create(
-                    MediaType.parse(attachment.getContentType()),
-                    content.bytes()
-            );
-            final MultipartBody.Part create = MultipartBody.Part
-                    .createFormData("file", attachment.getName(), requestBody);
-            final List<SharedStepAttachment> createdAttachment = executeRequest(
-                    ssScenarioService.createAttachment(sharedStepId, Arrays.asList(create))
-            );
-            return Optional.of(createdAttachment.get(0).getId());
-        } catch (Throwable e) {
-            return Optional.empty();
-        }
-    }
-
-    private void copySharedStepSteps(final SharedStepScenarioService ssScenarioService,
-                                     final Map<Long, ScenarioStep> stepContext,
-                                     final Map<Long, Long> attachmentContext,
-                                     final Long sharedStepId,
-                                     final List<Long> children,
-                                     final Long parentId) throws Exception {
-        if (Objects.isNull(children)) {
-            return;
-        }
-        Long createdId = null;
-        for (Long currentStepId : children) {
-            final ScenarioStep currentStep = stepContext.get(currentStepId);
-            ScenarioStepCreate createRequest = new ScenarioStepCreate()
-                    .setSharedStepId(sharedStepId)
-                    .setParentId(parentId);
-            ScenarioStepResponse createdScenario;
-            if (Objects.nonNull(currentStep.getAttachmentId())) {
-                final Long attachmentId = attachmentContext.get(currentStep.getAttachmentId());
-                if (Objects.nonNull(attachmentId)) {
-                    createdScenario = executeRequest(
-                            ssScenarioService.createStep(createRequest.setAttachmentId(attachmentId), null, createdId)
-                    );
-                } else {
-                    final String message = String.format(
-                            "Missing attachment with id '%s'", currentStep.getAttachmentId()
-                    );
-                    createdScenario = executeRequest(
-                            ssScenarioService.createStep(createRequest.setBody(message), null, createdId)
-                    );
-                }
-            } else {
-                final Optional<Long> expectedResult = Optional.ofNullable(currentStep.getExpectedResultId());
-                createRequest = createRequest.setBody(currentStep.getBody());
-                createdScenario = executeRequest(
-                        ssScenarioService.createStep(createRequest, null, createdId, expectedResult.isPresent())
-                );
-                if (expectedResult.isPresent()) {
-                    final Long expectedResultId = createdScenario.getScenario().getSharedStepScenarioSteps()
-                            .get(createdScenario.getCreatedStepId())
-                            .getExpectedResultId();
-                    final List<Long> expectedResultChildren = stepContext
-                            .get(currentStep.getExpectedResultId())
-                            .getChildren();
-                    copySharedStepSteps(
-                            ssScenarioService,
-                            stepContext,
-                            attachmentContext,
-                            sharedStepId,
-                            expectedResultChildren,
-                            expectedResultId);
-                }
-            }
-            createdId = createdScenario.getCreatedStepId();
-            copySharedStepSteps(
-                    ssScenarioService,
-                    stepContext,
-                    attachmentContext,
-                    sharedStepId,
-                    currentStep.getChildren(),
-                    createdId
-            );
-        }
-    }
 
     private static List<ScenarioStepCreate> getStepsFromText(final TestCaseScenarioService tcScenarioService,
                                                              final String text,
@@ -681,13 +413,6 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private static class ParsedLine {
         private LineType type;
         private String content;
-    }
-
-    @Data
-    @Accessors(chain = true)
-    private static class StepShared {
-        private Long testCaseId;
-        private Boolean expandScenario;
     }
 
     @Data
