@@ -121,6 +121,7 @@ public abstract class AbstractTestOpsCommand implements Runnable {
     protected static <T> T executeRequest(final Call<T> call) throws IOException {
         final Response<T> response = call.execute();
         if (!response.isSuccessful()) {
+            System.out.println(response.errorBody().string());
             throw new RuntimeException(response.errorBody().string());
         }
         return response.body();

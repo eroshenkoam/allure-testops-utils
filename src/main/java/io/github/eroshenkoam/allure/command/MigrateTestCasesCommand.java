@@ -1,7 +1,6 @@
 package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.eroshenkoam.allure.textmarkup.MarkdownToJsonConverter;
 import io.qameta.allure.ee.client.ProjectService;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseScenarioService;
@@ -9,11 +8,11 @@ import io.qameta.allure.ee.client.TestCaseService;
 import io.qameta.allure.ee.client.dto.Page;
 import io.qameta.allure.ee.client.dto.Project;
 import io.qameta.allure.ee.client.dto.ScenarioNormalized;
-import io.qameta.allure.ee.client.dto.ScenarioStep;
 import io.qameta.allure.ee.client.dto.TestCase;
 import io.qameta.allure.ee.client.dto.TestCaseAttachment;
 import io.qameta.allure.ee.client.dto.scenario.AttachmentStep;
 import io.qameta.allure.ee.client.dto.scenario.BodyStep;
+import io.qameta.allure.ee.client.dto.scenario.ScenarioStep;
 import io.qameta.allure.ee.client.dto.scenario.TestCaseScenarioV2;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -33,7 +32,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
@@ -107,9 +106,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             projectIds.addAll(getAllProjects(projectService).keySet());
         }
         for (Long projectId : projectIds) {
-            migrateProject(
-                    tcService, tcScenarioService, projectId
-            );
+            migrateProject(tcService, tcScenarioService, projectId);
         }
         writeMeta(META_TIMINGS, timingMeta);
     }
@@ -135,37 +132,57 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private void migrateExpectedSteps(final TestCaseScenarioService scenarioService,
                                       final Long testCaseId) throws Exception {
         final ScenarioNormalized oldScenario = executeRequest(scenarioService.getScenario(testCaseId));
-        final TestCaseScenarioV2 migratedScenario = migrateScenario(oldScenario);
-        for (int i = 0; i < migratedScenario.getSteps().size(); i++) {
-            final io.qameta.allure.ee.client.dto.scenario.ScenarioStep step = migratedScenario.getSteps().get(i);
-            if (step instanceof TableStep) {
-                final Long attachmentId = createTable(scenarioService, ((TableStep) step).getTable(), testCaseId);
-                migratedScenario.getSteps().set(i, new AttachmentStep().setAttachmentId(attachmentId));
+        final TestCaseScenarioV2 migratedScenario = migrateScenario(scenarioService, testCaseId, oldScenario);
+        System.out.println(new ObjectMapper().writeValueAsString(migratedScenario));
+        executeRequest(scenarioService.setScenario(testCaseId, migratedScenario));
+    }
+
+    private TestCaseScenarioV2 migrateScenario(final TestCaseScenarioService tcScenarioService,
+                                               final Long testCaseId,
+                                               final ScenarioNormalized oldScenario) throws Exception {
+        final Map<Long, io.qameta.allure.ee.client.dto.ScenarioStep> steps = oldScenario.getScenarioSteps();
+        final List<Long> ids = oldScenario.getRoot().getChildren();
+        final List<ScenarioStep> migratedSteps = new ArrayList<>();
+        for (final Long id : ids) {
+            final io.qameta.allure.ee.client.dto.ScenarioStep oldStep = steps.get(id);
+            final String name = StringUtils.trimToNull(oldStep.getBody());
+            if (StringUtils.isNoneBlank(name)) {
+                final Optional<ScenarioStep> newStep = name.startsWith("expected")
+                        ? migrateExpectedStep(tcScenarioService, testCaseId, name)
+                        : migrateBodyStep(id, steps);
+                newStep.ifPresent(migratedSteps::add);
             }
         }
-        scenarioService.setScenario(testCaseId, migratedScenario);
+        return new TestCaseScenarioV2()
+                .setSteps(migratedSteps);
     }
 
-    private TestCaseScenarioV2 migrateScenario(final ScenarioNormalized oldScenario) throws Exception {
-        final TestCaseScenarioV2 migratedScenario = new TestCaseScenarioV2()
-                .setSteps(new ArrayList<>());
-        final Collection<ScenarioStep> steps = oldScenario.getScenarioSteps().values();
-        for (ScenarioStep step : steps) {
-            migrateScenarioStep(step).ifPresent(migratedScenario.getSteps()::add);
-        }
+    private Optional<ScenarioStep> migrateBodyStep(final Long stepId,
+                                                   final Map<Long, io.qameta.allure.ee.client.dto.ScenarioStep> steps) {
+        final io.qameta.allure.ee.client.dto.ScenarioStep oldStep = steps.get(stepId);
+        if (StringUtils.isNoneBlank(oldStep.getBody())) {
 
-        return migratedScenario;
+            final BodyStep step = new BodyStep()
+                    .setBody(oldStep.getBody());
+            if (Objects.nonNull(oldStep.getChildren())) {
+                final List<ScenarioStep> subSteps = oldStep.getChildren().stream()
+                        .map(id -> this.migrateBodyStep(id, steps))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(Collectors.toList());
+                step.setSteps(subSteps);
+            }
+            return Optional.of(step);
+        }
+        if (Objects.nonNull(oldStep.getAttachmentId())) {
+            return Optional.of(new AttachmentStep().setAttachmentId(oldStep.getAttachmentId()));
+        }
+        return Optional.empty();
     }
 
-    private Optional<io.qameta.allure.ee.client.dto.scenario.ScenarioStep> migrateScenarioStep(final ScenarioStep step) {
-        final List<io.qameta.allure.ee.client.dto.scenario.ScenarioStep> steps = new ArrayList<>();
-        final String name = StringUtils.trimToNull(step.getBody());
-        if (StringUtils.isBlank(name)) {
-            return Optional.empty();
-        }
-        if (!(Objects.nonNull(name) && name.startsWith("expected"))) {
-            return Optional.of(new BodyStep().setBody(step.getBody()));
-        }
+    private Optional<ScenarioStep> migrateExpectedStep(final TestCaseScenarioService tcScenarioService,
+                                                       final Long testCaseId,
+                                                       final String name) throws Exception {
         final Optional<StepExpected> possibleCustomStep = readStepExpected(
                 StringUtils.trimToNull(name.replaceFirst("expected", "")));
         if (possibleCustomStep.isEmpty()) {
@@ -177,34 +194,37 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         if (blankStep) {
             return Optional.empty();
         }
-        final List<io.qameta.allure.ee.client.dto.scenario.ScenarioStep> actionSteps = getStepsFromText(
+        final List<ScenarioStep> actionSteps = getStepsFromText(
+                tcScenarioService,
+                testCaseId,
                 StringUtils.defaultIfBlank(customStep.getAction(), "Action")
         );
-        final io.qameta.allure.ee.client.dto.scenario.ScenarioStep firstActionStep = actionSteps.getFirst();
+        final ScenarioStep firstActionStep = actionSteps.getFirst();
         final BodyStep bodyStep = firstActionStep instanceof BodyStep
                 ? ((BodyStep) firstActionStep).setSteps(actionSteps.subList(1, actionSteps.size()))
                 : createBodyStep("Action").setSteps(actionSteps);
 
-        final List<io.qameta.allure.ee.client.dto.scenario.ScenarioStep> expectedResult = getStepsFromText(
+        final List<ScenarioStep> expectedResult = getStepsFromText(
+                tcScenarioService,
+                testCaseId,
                 customStep.getExpected()
         );
         bodyStep.setExpectedResultSteps(expectedResult);
         return Optional.of(bodyStep);
     }
 
-    private static List<io.qameta.allure.ee.client.dto.scenario.ScenarioStep> getStepsFromText(final String text) {
-        final List<io.qameta.allure.ee.client.dto.scenario.ScenarioStep> result = new ArrayList<>();
+    private static List<ScenarioStep> getStepsFromText(final TestCaseScenarioService tcScenarioService,
+                                                       final Long testCaseId,
+                                                       final String text) throws Exception {
+        final List<ScenarioStep> result = new ArrayList<>();
         final List<ParsedLine> parsedLines = getParsedLines(text);
         for (final ParsedLine line : parsedLines) {
             switch (line.getType()) {
-                case CONTENT -> {
-                    result.add(createBodyStep(line.getContent()));
-                }
-                case ATTACHMENT -> {
-                    result.add(new AttachmentStep().setAttachmentId(Long.parseLong(line.getContent())));
-                }
+                case CONTENT -> result.add(createBodyStep(line.getContent()));
+                case ATTACHMENT -> result.add(new AttachmentStep().setAttachmentId(Long.parseLong(line.getContent())));
                 case TABLE -> {
-                    result.add(new TableStep().setTable(line.getContent()));
+                    final Long attachmentId = createTable(tcScenarioService, line.getContent(), testCaseId);
+                    result.add(new AttachmentStep().setAttachmentId(attachmentId));
                 }
             }
         }
@@ -347,7 +367,9 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     }
 
     private static BodyStep createBodyStep(final String body) {
-        return new BodyStep().setBody(body).setBodyJson(MarkdownToJsonConverter.convertToJson(body));
+        return new BodyStep()
+//                .setBodyJson(MarkdownToJsonConverter.convertToJson(body))
+                .setBody(body);
     }
 
     private <T> void writeMeta(final String name, final T type) throws IOException {
@@ -402,7 +424,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     @Data
     @Accessors(chain = true)
-    private static class TableStep implements io.qameta.allure.ee.client.dto.scenario.ScenarioStep {
+    private static class TableStep implements ScenarioStep {
         private String table;
     }
 
