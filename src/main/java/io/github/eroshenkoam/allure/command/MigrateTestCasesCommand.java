@@ -1,6 +1,7 @@
 package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.eroshenkoam.allure.textmarkup.MarkdownToJsonConverter;
 import io.qameta.allure.ee.client.ProjectService;
 import io.qameta.allure.ee.client.ServiceBuilder;
 import io.qameta.allure.ee.client.TestCaseScenarioService;
@@ -10,10 +11,7 @@ import io.qameta.allure.ee.client.dto.Project;
 import io.qameta.allure.ee.client.dto.ScenarioNormalized;
 import io.qameta.allure.ee.client.dto.TestCase;
 import io.qameta.allure.ee.client.dto.TestCaseAttachment;
-import io.qameta.allure.ee.client.dto.scenario.AttachmentStep;
-import io.qameta.allure.ee.client.dto.scenario.BodyStep;
-import io.qameta.allure.ee.client.dto.scenario.ScenarioStep;
-import io.qameta.allure.ee.client.dto.scenario.TestCaseScenarioV2;
+import io.qameta.allure.ee.client.dto.scenario.*;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import okhttp3.Dispatcher;
@@ -197,7 +195,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         final List<ScenarioStep> actionSteps = getStepsFromText(
                 tcScenarioService,
                 testCaseId,
-                StringUtils.defaultIfBlank(customStep.getAction(), "Action")
+                StringUtils.defaultIfBlank(customStep.getAction(), "Action"),
+                false
         );
         final ScenarioStep firstActionStep = actionSteps.getFirst();
         final BodyStep bodyStep = firstActionStep instanceof BodyStep
@@ -207,7 +206,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         final List<ScenarioStep> expectedResult = getStepsFromText(
                 tcScenarioService,
                 testCaseId,
-                customStep.getExpected()
+                customStep.getExpected(),
+                true
         );
         bodyStep.setExpectedResultSteps(expectedResult);
         return Optional.of(bodyStep);
@@ -215,12 +215,18 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     private static List<ScenarioStep> getStepsFromText(final TestCaseScenarioService tcScenarioService,
                                                        final Long testCaseId,
-                                                       final String text) throws Exception {
+                                                       final String text,
+                                                       final boolean expected) throws Exception {
         final List<ScenarioStep> result = new ArrayList<>();
         final List<ParsedLine> parsedLines = getParsedLines(text);
         for (final ParsedLine line : parsedLines) {
             switch (line.getType()) {
-                case CONTENT -> result.add(createBodyStep(line.getContent()));
+                case CONTENT -> {
+                    final ScenarioStep step = expected
+                            ? createExpectedBodyStep(line.getContent())
+                            : createBodyStep(line.getContent());
+                    result.add(step);
+                }
                 case ATTACHMENT -> result.add(new AttachmentStep().setAttachmentId(Long.parseLong(line.getContent())));
                 case TABLE -> {
                     final Long attachmentId = createTable(tcScenarioService, line.getContent(), testCaseId);
@@ -368,7 +374,13 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     private static BodyStep createBodyStep(final String body) {
         return new BodyStep()
-//                .setBodyJson(MarkdownToJsonConverter.convertToJson(body))
+                .setBodyJson(MarkdownToJsonConverter.convertToJson(body))
+                .setBody(body);
+    }
+
+    private static ExpectedBodyStep createExpectedBodyStep(final String body) {
+        return new ExpectedBodyStep()
+                .setBodyJson(MarkdownToJsonConverter.convertToJson(body))
                 .setBody(body);
     }
 
