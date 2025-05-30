@@ -122,8 +122,14 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                                          final Long projectId) throws Exception {
         System.out.printf("Found information about %d test cases\n", testCaseIds.size());
         invokeParallel(String.format("[%d] migrate test case expected", projectId), testCaseIds, (id) -> {
-            executeRequest(tcScenarioService.migrateScenario(id));
-            migrateExpectedSteps(tcScenarioService, id);
+            final ScenarioNormalized newScenario = executeRequest(tcScenarioService.getScenario(id));
+            if (newScenario == null || newScenario.getScenarioSteps() == null
+                    || newScenario.getScenarioSteps().isEmpty()) {
+                executeRequest(tcScenarioService.migrateScenario(id));
+                migrateExpectedSteps(tcScenarioService, id);
+            } else {
+                System.out.printf("Test case %d already migrated\n", id);
+            }
         });
     }
 

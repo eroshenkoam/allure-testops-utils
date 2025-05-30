@@ -21,10 +21,10 @@ import java.util.regex.Pattern;
 /**
  * Utility class to convert Markdown text to JSON structure.
  * This converter supports basic GitHub Markdown syntax as described in:
- * https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
  */
-public class MarkdownToJsonConverter {
+public final class MarkdownToJsonConverter {
 
+    private MarkdownToJsonConverter() {}
     /**
      * Converts Markdown text to JSON structure.
      *
@@ -44,7 +44,7 @@ public class MarkdownToJsonConverter {
             final String line = lines[i];
             
             // Skip empty lines
-            if (line.trim().isEmpty()) {
+            if (line.trim().isBlank()) {
                 addEmptyParagraph(content);
                 continue;
             }
@@ -103,18 +103,20 @@ public class MarkdownToJsonConverter {
     private static void addHeading(final List<DocumentNode> content, final int level, final String text) {
         final ParagraphDocumentNode headingNode = new ParagraphDocumentNode();
         final List<ParagraphNode> paragraphContent = new ArrayList<>();
-        
-        final TextParagraphNode textNode = new TextParagraphNode();
-        textNode.setText(text);
-        
-        // Add bold mark to make the heading text bold
-        final List<TextMark> marks = new ArrayList<>();
-        final BoldMark boldMark = new BoldMark();
-        marks.add(boldMark);
-        textNode.setMarks(marks);
-        
-        paragraphContent.add(textNode);
-        
+
+        if (!text.isBlank()) {
+            final TextParagraphNode textNode = new TextParagraphNode();
+            textNode.setText(text);
+
+            // Add bold mark to make the heading text bold
+            final List<TextMark> marks = new ArrayList<>();
+            final BoldMark boldMark = new BoldMark();
+            marks.add(boldMark);
+            textNode.setMarks(marks);
+
+            paragraphContent.add(textNode);
+        }
+
         headingNode.setContent(paragraphContent);
         headingNode.setAttrs(new ParagraphDocumentNode.Attrs());
         content.add(headingNode);
@@ -123,12 +125,24 @@ public class MarkdownToJsonConverter {
     private static void addListItem(final List<DocumentNode> content, final String text) {
         final ParagraphDocumentNode listItemNode = new ParagraphDocumentNode();
         final List<ParagraphNode> paragraphContent = new ArrayList<>();
-        
-        final TextParagraphNode textNode = new TextParagraphNode();
-        textNode.setText(text);
-        textNode.setMarks(null);
-        paragraphContent.add(textNode);
-        
+
+        // Check if the paragraph contains any formatting
+        if (text.contains("**") || text.contains("__") ||
+                text.contains("*") || text.contains("_") ||
+                text.contains("~~") || text.contains("`") ||
+                (text.contains("[") && text.contains("]") && text.contains("(") && text.contains(")"))) {
+
+            // Process the text with mixed formatting
+            processMixedFormatting(content, text);
+            return;
+        }
+        if (!text.isBlank()) {
+            final TextParagraphNode textNode = new TextParagraphNode();
+            textNode.setText(text);
+            textNode.setMarks(null);
+            paragraphContent.add(textNode);
+        }
+
         listItemNode.setContent(paragraphContent);
         listItemNode.setAttrs(new ParagraphDocumentNode.Attrs());
         content.add(listItemNode);
@@ -137,17 +151,19 @@ public class MarkdownToJsonConverter {
     private static void addCodeBlock(final List<DocumentNode> content, final String code) {
         final ParagraphDocumentNode codeBlockNode = new ParagraphDocumentNode();
         final List<ParagraphNode> paragraphContent = new ArrayList<>();
-        
-        final TextParagraphNode textNode = new TextParagraphNode();
-        textNode.setText(code);
-        
-        final List<TextMark> marks = new ArrayList<>();
-        final CodeMark codeMark = new CodeMark();
-        marks.add(codeMark);
-        
-        textNode.setMarks(marks);
-        paragraphContent.add(textNode);
-        
+
+        if (!code.isBlank()) {
+            final TextParagraphNode textNode = new TextParagraphNode();
+            textNode.setText(code);
+
+            final List<TextMark> marks = new ArrayList<>();
+            final CodeMark codeMark = new CodeMark();
+            marks.add(codeMark);
+
+            textNode.setMarks(marks);
+            paragraphContent.add(textNode);
+        }
+
         codeBlockNode.setContent(paragraphContent);
         codeBlockNode.setAttrs(new ParagraphDocumentNode.Attrs());
         content.add(codeBlockNode);
@@ -169,11 +185,13 @@ public class MarkdownToJsonConverter {
         }
         
         // If no formatting, add as plain text
-        final TextParagraphNode textNode = new TextParagraphNode();
-        textNode.setText(text);
-        textNode.setMarks(null);
-        paragraphContent.add(textNode);
-        
+        if (!text.isBlank()) {
+            final TextParagraphNode textNode = new TextParagraphNode();
+            textNode.setText(text);
+            textNode.setMarks(null);
+            paragraphContent.add(textNode);
+        }
+
         paragraphNode.setContent(paragraphContent);
         paragraphNode.setAttrs(new ParagraphDocumentNode.Attrs());
         content.add(paragraphNode);
@@ -196,7 +214,7 @@ public class MarkdownToJsonConverter {
                 // Add text before the link
                 if (linkMatcher.start() > 0) {
                     final String beforeText = remainingText.substring(0, linkMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         // Process the before text for other formatting
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
@@ -204,20 +222,22 @@ public class MarkdownToJsonConverter {
                 
                 // Add the link part
                 final String linkText = linkMatcher.group(1);
-                final TextParagraphNode linkNode = new TextParagraphNode();
-                linkNode.setText(linkText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final LinkMark linkMark = new LinkMark();
-                final LinkMark.Attrs attrs = new LinkMark.Attrs();
-                attrs.setHref(linkMatcher.group(2));
-                attrs.setTarget("_blank");
-                attrs.setRel("noopener noreferrer nofollow");
-                linkMark.setAttrs(attrs);
-                marks.add(linkMark);
-                
-                linkNode.setMarks(marks);
-                paragraphContent.add(linkNode);
+                if (!linkText.isBlank()) {
+                    final TextParagraphNode linkNode = new TextParagraphNode();
+                    linkNode.setText(linkText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final LinkMark linkMark = new LinkMark();
+                    final LinkMark.Attrs attrs = new LinkMark.Attrs();
+                    attrs.setHref(linkMatcher.group(2));
+                    attrs.setTarget("_blank");
+                    attrs.setRel("noopener noreferrer nofollow");
+                    linkMark.setAttrs(attrs);
+                    marks.add(linkMark);
+
+                    linkNode.setMarks(marks);
+                    paragraphContent.add(linkNode);
+                }
                 
                 // Update remaining text
                 remainingText = remainingText.substring(linkMatcher.end());
@@ -225,12 +245,58 @@ public class MarkdownToJsonConverter {
             }
             
             // Process any remaining text
-            if (!remainingText.isEmpty()) {
+            if (!remainingText.isBlank()) {
+                processTextWithFormatting(remainingText, paragraphContent);
+            }
+        }
+        // Then, check for links in other format
+        else if (remainingText.contains("[") && remainingText.contains("]") &&
+                remainingText.contains("http")) {
+            final Pattern linkPattern2 = Pattern.compile("\\[\\d+\\]:\\s*(https?://[^\\s]+)");
+            final Matcher linkMatcher2 = linkPattern2.matcher(remainingText);
+
+            while (linkMatcher2.find()) {
+                // Add text before the link
+                if (linkMatcher2.start() > 0) {
+                    final String beforeText = remainingText.substring(0, linkMatcher2.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+
+                // Add the link part
+                final String linkText = linkMatcher2.group(1);
+                if (!linkText.isBlank()) {
+                    final TextParagraphNode linkNode = new TextParagraphNode();
+                    linkNode.setText(linkText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final LinkMark linkMark = new LinkMark();
+                    final LinkMark.Attrs attrs = new LinkMark.Attrs();
+                    attrs.setHref(linkText);
+                    attrs.setTarget("_blank");
+                    attrs.setRel("noopener noreferrer nofollow");
+                    linkMark.setAttrs(attrs);
+                    marks.add(linkMark);
+
+                    linkNode.setMarks(marks);
+                    paragraphContent.add(linkNode);
+                }
+
+                // Update remaining text
+                remainingText = remainingText.substring(linkMatcher2.end());
+                linkMatcher2.reset(remainingText);
+            }
+
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
                 processTextWithFormatting(remainingText, paragraphContent);
             }
         }
         // Then check for bold text
         else if (remainingText.contains("**") || remainingText.contains("__")) {
+            //final Pattern boldPattern = Pattern.compile("(\\*\\*|__)(.*?)\\1");
             final Pattern boldPattern = Pattern.compile("(\\*\\*|__)(.*?)\\1");
             final Matcher boldMatcher = boldPattern.matcher(remainingText);
             
@@ -238,7 +304,7 @@ public class MarkdownToJsonConverter {
                 // Add text before the bold part
                 if (boldMatcher.start() > 0) {
                     final String beforeText = remainingText.substring(0, boldMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         // Process the before text for other formatting
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
@@ -246,60 +312,65 @@ public class MarkdownToJsonConverter {
                 
                 // Add the bold part
                 final String boldText = boldMatcher.group(2);
-                final TextParagraphNode boldNode = new TextParagraphNode();
-                boldNode.setText(boldText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final BoldMark boldMark = new BoldMark();
-                marks.add(boldMark);
-                
-                boldNode.setMarks(marks);
-                paragraphContent.add(boldNode);
-                
+                if (!boldText.isBlank()) {
+                    final TextParagraphNode boldNode = new TextParagraphNode();
+                    boldNode.setText(boldText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final BoldMark boldMark = new BoldMark();
+                    marks.add(boldMark);
+
+                    boldNode.setMarks(marks);
+                    paragraphContent.add(boldNode);
+                }
+
                 // Update remaining text
                 remainingText = remainingText.substring(boldMatcher.end());
                 boldMatcher.reset(remainingText);
             }
             
             // Process any remaining text
-            if (!remainingText.isEmpty()) {
+            if (!remainingText.isBlank()) {
                 processTextWithFormatting(remainingText, paragraphContent);
             }
         }
         // Then check for italic text
         else if (remainingText.contains("*") || remainingText.contains("_")) {
+            //final Pattern italicPattern = Pattern.compile("(\\*|_)(.*?)\\1");
             final Pattern italicPattern = Pattern.compile("(\\*|_)(.*?)\\1");
             final Matcher italicMatcher = italicPattern.matcher(remainingText);
-            
+
             while (italicMatcher.find()) {
                 // Add text before the italic part
                 if (italicMatcher.start() > 0) {
                     final String beforeText = remainingText.substring(0, italicMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         // Process the before text for other formatting
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
                 }
-                
+
                 // Add the italic part
                 final String italicText = italicMatcher.group(2);
-                final TextParagraphNode italicNode = new TextParagraphNode();
-                italicNode.setText(italicText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final ItalicMark italicMark = new ItalicMark();
-                marks.add(italicMark);
-                
-                italicNode.setMarks(marks);
-                paragraphContent.add(italicNode);
-                
+                if (!italicText.isBlank()) {
+                    final TextParagraphNode italicNode = new TextParagraphNode();
+                    italicNode.setText(italicText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final ItalicMark italicMark = new ItalicMark();
+                    marks.add(italicMark);
+
+                    italicNode.setMarks(marks);
+                    paragraphContent.add(italicNode);
+                }
+
                 // Update remaining text
                 remainingText = remainingText.substring(italicMatcher.end());
                 italicMatcher.reset(remainingText);
             }
-            
+
             // Process any remaining text
-            if (!remainingText.isEmpty()) {
+            if (!remainingText.isBlank()) {
                 processTextWithFormatting(remainingText, paragraphContent);
             }
         }
@@ -312,7 +383,7 @@ public class MarkdownToJsonConverter {
                 // Add text before the strikethrough part
                 if (strikeMatcher.start() > 0) {
                     final String beforeText = remainingText.substring(0, strikeMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         // Process the before text for other formatting
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
@@ -320,23 +391,25 @@ public class MarkdownToJsonConverter {
                 
                 // Add the strikethrough part
                 final String strikeText = strikeMatcher.group(1);
-                final TextParagraphNode strikeNode = new TextParagraphNode();
-                strikeNode.setText(strikeText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final StrikeMark strikeMark = new StrikeMark();
-                marks.add(strikeMark);
-                
-                strikeNode.setMarks(marks);
-                paragraphContent.add(strikeNode);
-                
+                if (!strikeText.isBlank()) {
+                    final TextParagraphNode strikeNode = new TextParagraphNode();
+                    strikeNode.setText(strikeText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final StrikeMark strikeMark = new StrikeMark();
+                    marks.add(strikeMark);
+
+                    strikeNode.setMarks(marks);
+                    paragraphContent.add(strikeNode);
+                }
+
                 // Update remaining text
                 remainingText = remainingText.substring(strikeMatcher.end());
                 strikeMatcher.reset(remainingText);
             }
             
             // Process any remaining text
-            if (!remainingText.isEmpty()) {
+            if (!remainingText.isBlank()) {
                 processTextWithFormatting(remainingText, paragraphContent);
             }
         }
@@ -349,7 +422,7 @@ public class MarkdownToJsonConverter {
                 // Add text before the code
                 if (codeMatcher.start() > 0) {
                     final String beforeText = remainingText.substring(0, codeMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         // Process the before text for other formatting
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
@@ -357,15 +430,17 @@ public class MarkdownToJsonConverter {
                 
                 // Add the code part
                 final String codeText = codeMatcher.group(1);
-                final TextParagraphNode codeNode = new TextParagraphNode();
-                codeNode.setText(codeText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final CodeMark codeMark = new CodeMark();
-                marks.add(codeMark);
-                
-                codeNode.setMarks(marks);
-                paragraphContent.add(codeNode);
+                if (!codeText.isBlank()) {
+                    final TextParagraphNode codeNode = new TextParagraphNode();
+                    codeNode.setText(codeText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final CodeMark codeMark = new CodeMark();
+                    marks.add(codeMark);
+
+                    codeNode.setMarks(marks);
+                    paragraphContent.add(codeNode);
+                }
                 
                 // Update remaining text
                 remainingText = remainingText.substring(codeMatcher.end());
@@ -373,16 +448,18 @@ public class MarkdownToJsonConverter {
             }
             
             // Process any remaining text
-            if (!remainingText.isEmpty()) {
+            if (!remainingText.isBlank()) {
                 processTextWithFormatting(remainingText, paragraphContent);
             }
         }
         // If no formatting was found, add as plain text
         else {
-            final TextParagraphNode textNode = new TextParagraphNode();
-            textNode.setText(remainingText);
-            textNode.setMarks(null);
-            paragraphContent.add(textNode);
+            if (!remainingText.isBlank()) {
+                final TextParagraphNode textNode = new TextParagraphNode();
+                textNode.setText(remainingText);
+                textNode.setMarks(null);
+                paragraphContent.add(textNode);
+            }
         }
         
         paragraphNode.setContent(paragraphContent);
@@ -403,31 +480,76 @@ public class MarkdownToJsonConverter {
                 // Add text before the link
                 if (linkMatcher.start() > 0) {
                     final String beforeText = text.substring(0, linkMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
                 }
                 
                 // Add the link part
                 final String linkText = linkMatcher.group(1);
-                final TextParagraphNode linkNode = new TextParagraphNode();
-                linkNode.setText(linkText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final LinkMark linkMark = new LinkMark();
-                final LinkMark.Attrs attrs = new LinkMark.Attrs();
-                attrs.setHref(linkMatcher.group(2));
-                attrs.setTarget("_blank");
-                attrs.setRel("noopener noreferrer nofollow");
-                linkMark.setAttrs(attrs);
-                marks.add(linkMark);
-                
-                linkNode.setMarks(marks);
-                paragraphContent.add(linkNode);
+                if (!linkText.isBlank()) {
+                    final TextParagraphNode linkNode = new TextParagraphNode();
+                    linkNode.setText(linkText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final LinkMark linkMark = new LinkMark();
+                    final LinkMark.Attrs attrs = new LinkMark.Attrs();
+                    attrs.setHref(linkMatcher.group(2));
+                    attrs.setTarget("_blank");
+                    attrs.setRel("noopener noreferrer nofollow");
+                    linkMark.setAttrs(attrs);
+                    marks.add(linkMark);
+
+                    linkNode.setMarks(marks);
+                    paragraphContent.add(linkNode);
+                }
                 
                 // Update remaining text
                 final String remainingText = text.substring(linkMatcher.end());
-                if (!remainingText.isEmpty()) {
+                if (!remainingText.isBlank()) {
+                    processTextWithFormatting(remainingText, paragraphContent);
+                }
+                return;
+            }
+        }
+
+        // Check for links
+        if (text.contains("[") && text.contains("]") &&
+                text.contains("http")) {
+            final Pattern linkPattern2 = Pattern.compile("\\[\\d+\\]:\\s*(https?://[^\\s]+)");
+            final Matcher linkMatcher2 = linkPattern2.matcher(text);
+
+            while (linkMatcher2.find()) {
+                // Add text before the link
+                if (linkMatcher2.start() > 0) {
+                    final String beforeText = text.substring(0, linkMatcher2.start());
+                    if (!beforeText.isBlank()) {
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+
+                // Add the link part
+                final String linkText = linkMatcher2.group(1);
+                if (!linkText.isBlank()) {
+                    final TextParagraphNode linkNode = new TextParagraphNode();
+                    linkNode.setText(linkText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final LinkMark linkMark = new LinkMark();
+                    final LinkMark.Attrs attrs = new LinkMark.Attrs();
+                    attrs.setHref(linkMatcher2.group(2));
+                    attrs.setTarget("_blank");
+                    attrs.setRel("noopener noreferrer nofollow");
+                    linkMark.setAttrs(attrs);
+                    marks.add(linkMark);
+
+                    linkNode.setMarks(marks);
+                    paragraphContent.add(linkNode);
+                }
+
+                // Update remaining text
+                final String remainingText = text.substring(linkMatcher2.end());
+                if (!remainingText.isBlank()) {
                     processTextWithFormatting(remainingText, paragraphContent);
                 }
                 return;
@@ -443,26 +565,28 @@ public class MarkdownToJsonConverter {
                 // Add text before the bold part
                 if (boldMatcher.start() > 0) {
                     final String beforeText = text.substring(0, boldMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
                 }
                 
                 // Add the bold part
                 final String boldText = boldMatcher.group(2);
-                final TextParagraphNode boldNode = new TextParagraphNode();
-                boldNode.setText(boldText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final BoldMark boldMark = new BoldMark();
-                marks.add(boldMark);
-                
-                boldNode.setMarks(marks);
-                paragraphContent.add(boldNode);
-                
+                if (!boldText.isBlank()) {
+                    final TextParagraphNode boldNode = new TextParagraphNode();
+                    boldNode.setText(boldText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final BoldMark boldMark = new BoldMark();
+                    marks.add(boldMark);
+
+                    boldNode.setMarks(marks);
+                    paragraphContent.add(boldNode);
+                }
+
                 // Update remaining text
                 final String remainingText = text.substring(boldMatcher.end());
-                if (!remainingText.isEmpty()) {
+                if (!remainingText.isBlank()) {
                     processTextWithFormatting(remainingText, paragraphContent);
                 }
                 return;
@@ -478,26 +602,28 @@ public class MarkdownToJsonConverter {
                 // Add text before the italic part
                 if (italicMatcher.start() > 0) {
                     final String beforeText = text.substring(0, italicMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
                 }
                 
                 // Add the italic part
                 final String italicText = italicMatcher.group(2);
-                final TextParagraphNode italicNode = new TextParagraphNode();
-                italicNode.setText(italicText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final ItalicMark italicMark = new ItalicMark();
-                marks.add(italicMark);
-                
-                italicNode.setMarks(marks);
-                paragraphContent.add(italicNode);
-                
+                if (!italicText.isBlank()) {
+                    final TextParagraphNode italicNode = new TextParagraphNode();
+                    italicNode.setText(italicText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final ItalicMark italicMark = new ItalicMark();
+                    marks.add(italicMark);
+
+                    italicNode.setMarks(marks);
+                    paragraphContent.add(italicNode);
+                }
+
                 // Update remaining text
                 final String remainingText = text.substring(italicMatcher.end());
-                if (!remainingText.isEmpty()) {
+                if (!remainingText.isBlank()) {
                     processTextWithFormatting(remainingText, paragraphContent);
                 }
                 return;
@@ -513,26 +639,28 @@ public class MarkdownToJsonConverter {
                 // Add text before the strikethrough part
                 if (strikeMatcher.start() > 0) {
                     final String beforeText = text.substring(0, strikeMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
                 }
                 
                 // Add the strikethrough part
                 final String strikeText = strikeMatcher.group(1);
-                final TextParagraphNode strikeNode = new TextParagraphNode();
-                strikeNode.setText(strikeText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final StrikeMark strikeMark = new StrikeMark();
-                marks.add(strikeMark);
-                
-                strikeNode.setMarks(marks);
-                paragraphContent.add(strikeNode);
+                if (!strikeText.isBlank()) {
+                    final TextParagraphNode strikeNode = new TextParagraphNode();
+                    strikeNode.setText(strikeText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final StrikeMark strikeMark = new StrikeMark();
+                    marks.add(strikeMark);
+
+                    strikeNode.setMarks(marks);
+                    paragraphContent.add(strikeNode);
+                }
                 
                 // Update remaining text
                 final String remainingText = text.substring(strikeMatcher.end());
-                if (!remainingText.isEmpty()) {
+                if (!remainingText.isBlank()) {
                     processTextWithFormatting(remainingText, paragraphContent);
                 }
                 return;
@@ -548,26 +676,28 @@ public class MarkdownToJsonConverter {
                 // Add text before the code
                 if (codeMatcher.start() > 0) {
                     final String beforeText = text.substring(0, codeMatcher.start());
-                    if (!beforeText.isEmpty()) {
+                    if (!beforeText.isBlank()) {
                         processTextWithFormatting(beforeText, paragraphContent);
                     }
                 }
                 
                 // Add the code part
                 final String codeText = codeMatcher.group(1);
-                final TextParagraphNode codeNode = new TextParagraphNode();
-                codeNode.setText(codeText);
-                
-                final List<TextMark> marks = new ArrayList<>();
-                final CodeMark codeMark = new CodeMark();
-                marks.add(codeMark);
-                
-                codeNode.setMarks(marks);
-                paragraphContent.add(codeNode);
-                
+                if (!codeText.isBlank()) {
+                    final TextParagraphNode codeNode = new TextParagraphNode();
+                    codeNode.setText(codeText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final CodeMark codeMark = new CodeMark();
+                    marks.add(codeMark);
+
+                    codeNode.setMarks(marks);
+                    paragraphContent.add(codeNode);
+                }
+
                 // Update remaining text
                 final String remainingText = text.substring(codeMatcher.end());
-                if (!remainingText.isEmpty()) {
+                if (!remainingText.isBlank()) {
                     processTextWithFormatting(remainingText, paragraphContent);
                 }
                 return;
@@ -575,9 +705,11 @@ public class MarkdownToJsonConverter {
         }
         
         // If no formatting was found, add as plain text
-        final TextParagraphNode textNode = new TextParagraphNode();
-        textNode.setText(text);
-        textNode.setMarks(null);
-        paragraphContent.add(textNode);
+        if (!text.isBlank()) {
+            final TextParagraphNode textNode = new TextParagraphNode();
+            textNode.setText(text);
+            textNode.setMarks(null);
+            paragraphContent.add(textNode);
+        }
     }
 }
