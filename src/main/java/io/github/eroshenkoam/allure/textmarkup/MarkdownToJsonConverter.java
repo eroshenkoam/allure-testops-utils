@@ -174,9 +174,9 @@ public final class MarkdownToJsonConverter {
         final List<ParagraphNode> paragraphContent = new ArrayList<>();
         
         // Check if the paragraph contains any formatting
-        if (text.contains("**") || text.contains("__") || 
-            text.contains("*") || text.contains("_") || 
-            text.contains("~~") || text.contains("`") || 
+        if (text.contains("**") || text.contains("__") ||
+            text.contains("*") || text.contains("_") ||
+            text.contains("~~") || text.contains("`") ||
             (text.contains("[") && text.contains("]") && text.contains("(") && text.contains(")"))) {
             
             // Process the text with mixed formatting
@@ -296,8 +296,7 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for bold text
         else if (remainingText.contains("**") || remainingText.contains("__")) {
-            //final Pattern boldPattern = Pattern.compile("(\\*\\*|__)(.*?)\\1");
-            final Pattern boldPattern = Pattern.compile("(\\*\\*|__)(.*?)\\1");
+            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)?(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(\\s|\\n|$)?");
             final Matcher boldMatcher = boldPattern.matcher(remainingText);
             
             while (boldMatcher.find()) {
@@ -311,7 +310,7 @@ public final class MarkdownToJsonConverter {
                 }
                 
                 // Add the bold part
-                final String boldText = boldMatcher.group(2);
+                final String boldText = boldMatcher.group(3);
                 if (!boldText.isBlank()) {
                     final TextParagraphNode boldNode = new TextParagraphNode();
                     boldNode.setText(boldText);
@@ -335,9 +334,8 @@ public final class MarkdownToJsonConverter {
             }
         }
         // Then check for italic text
-        else if (remainingText.contains("*") || remainingText.contains("_")) {
-            //final Pattern italicPattern = Pattern.compile("(\\*|_)(.*?)\\1");
-            final Pattern italicPattern = Pattern.compile("(\\*|_)(.*?)\\1");
+        else if (remainingText.contains(" *") || remainingText.contains(" _")) {
+            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)?(\\*|_)([\\s\\S]*?)(\\*|_)(\\s|\\n|$)?");
             final Matcher italicMatcher = italicPattern.matcher(remainingText);
 
             while (italicMatcher.find()) {
@@ -376,7 +374,7 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for strikethrough text
         else if (remainingText.contains("~~")) {
-            final Pattern strikePattern = Pattern.compile("~~(.*?)~~");
+            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)?~~([\\s\\S]*?)~~(\\s|\\n|$)?");
             final Matcher strikeMatcher = strikePattern.matcher(remainingText);
             
             while (strikeMatcher.find()) {
@@ -390,7 +388,7 @@ public final class MarkdownToJsonConverter {
                 }
                 
                 // Add the strikethrough part
-                final String strikeText = strikeMatcher.group(1);
+                final String strikeText = strikeMatcher.group(2);
                 if (!strikeText.isBlank()) {
                     final TextParagraphNode strikeNode = new TextParagraphNode();
                     strikeNode.setText(strikeText);
@@ -415,7 +413,7 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for inline code
         else if (remainingText.contains("`")) {
-            final Pattern codePattern = Pattern.compile("`([^`]+)`");
+            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)?`([\\s\\S]*?)`(\\s|\\n|$)?");
             final Matcher codeMatcher = codePattern.matcher(remainingText);
             
             while (codeMatcher.find()) {
@@ -429,7 +427,7 @@ public final class MarkdownToJsonConverter {
                 }
                 
                 // Add the code part
-                final String codeText = codeMatcher.group(1);
+                final String codeText = codeMatcher.group(2);
                 if (!codeText.isBlank()) {
                     final TextParagraphNode codeNode = new TextParagraphNode();
                     codeNode.setText(codeText);
@@ -558,7 +556,7 @@ public final class MarkdownToJsonConverter {
         
         // Check for bold text
         if (text.contains("**") || text.contains("__")) {
-            final Pattern boldPattern = Pattern.compile("(\\*\\*|__)(.*?)\\1");
+            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)?(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(\\s|\\n|$)?");
             final Matcher boldMatcher = boldPattern.matcher(text);
             
             while (boldMatcher.find()) {
@@ -571,7 +569,7 @@ public final class MarkdownToJsonConverter {
                 }
                 
                 // Add the bold part
-                final String boldText = boldMatcher.group(2);
+                final String boldText = boldMatcher.group(3);
                 if (!boldText.isBlank()) {
                     final TextParagraphNode boldNode = new TextParagraphNode();
                     boldNode.setText(boldText);
@@ -595,7 +593,7 @@ public final class MarkdownToJsonConverter {
         
         // Check for italic text
         if (text.contains("*") || text.contains("_")) {
-            final Pattern italicPattern = Pattern.compile("(\\*|_)(.*?)\\1");
+            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)?(\\*|_)([\\s\\S]*?)(\\*|_)(\\s|\\n|$)?");
             final Matcher italicMatcher = italicPattern.matcher(text);
             
             while (italicMatcher.find()) {
@@ -608,7 +606,7 @@ public final class MarkdownToJsonConverter {
                 }
                 
                 // Add the italic part
-                final String italicText = italicMatcher.group(2);
+                final String italicText = italicMatcher.group(3);
                 if (!italicText.isBlank()) {
                     final TextParagraphNode italicNode = new TextParagraphNode();
                     italicNode.setText(italicText);
@@ -632,7 +630,7 @@ public final class MarkdownToJsonConverter {
         
         // Check for strikethrough text
         if (text.contains("~~")) {
-            final Pattern strikePattern = Pattern.compile("~~(.*?)~~");
+            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)?~~([\\s\\S]*?)~~(\\s|\\n|$)?");
             final Matcher strikeMatcher = strikePattern.matcher(text);
             
             while (strikeMatcher.find()) {
@@ -645,7 +643,7 @@ public final class MarkdownToJsonConverter {
                 }
                 
                 // Add the strikethrough part
-                final String strikeText = strikeMatcher.group(1);
+                final String strikeText = strikeMatcher.group(2);
                 if (!strikeText.isBlank()) {
                     final TextParagraphNode strikeNode = new TextParagraphNode();
                     strikeNode.setText(strikeText);
@@ -669,7 +667,7 @@ public final class MarkdownToJsonConverter {
         
         // Check for inline code
         if (text.contains("`")) {
-            final Pattern codePattern = Pattern.compile("`([^`]+)`");
+            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)?`([\\s\\S]*?)`(\\s|\\n|$)?");
             final Matcher codeMatcher = codePattern.matcher(text);
             
             while (codeMatcher.find()) {
@@ -682,7 +680,7 @@ public final class MarkdownToJsonConverter {
                 }
                 
                 // Add the code part
-                final String codeText = codeMatcher.group(1);
+                final String codeText = codeMatcher.group(2);
                 if (!codeText.isBlank()) {
                     final TextParagraphNode codeNode = new TextParagraphNode();
                     codeNode.setText(codeText);
