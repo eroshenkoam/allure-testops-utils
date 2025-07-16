@@ -35,9 +35,13 @@ public final class MarkdownToJsonConverter {
         final DefaultTextMarkupDocument document = new DefaultTextMarkupDocument();
         final List<DocumentNode> content = new ArrayList<>();
         document.setContent(content);
-        
+
+        final String markdownNoKod = markdown
+                .replaceAll("\\*\\*`keyword =` \\[`", "** keyword = ** [")
+                .replaceAll("`]\\(", "](");
+
         // Split the markdown into lines
-        final String[] lines = markdown.split("\\r?\\n");
+        final String[] lines = markdownNoKod.split("\\r?\\n");
         
         // Process each line
         for (int i = 0; i < lines.length; i++) {
@@ -55,22 +59,20 @@ public final class MarkdownToJsonConverter {
                 while (level < line.length() && line.charAt(level) == '#') {
                     level++;
                 }
-                final String headingText = line.substring(level).trim();
+                final String headingText = line.substring(level);
                 addHeading(content, level, headingText);
                 continue;
             }
             
             // Check for list items
             if (line.matches("^\\s*[-*]\\s+.+")) {
-                final String listItemText = line.replaceFirst("^\\s*[-*]\\s+", "");
-                addListItem(content, listItemText);
+                addListItem(content, line);
                 continue;
             }
             
             // Check for numbered list items
             if (line.matches("^\\s*\\d+\\.\\s+.+")) {
-                final String listItemText = line.replaceFirst("^\\s*\\d+\\.\\s+", "");
-                addListItem(content, listItemText);
+                addListItem(content, line);
                 continue;
             }
             
@@ -82,7 +84,7 @@ public final class MarkdownToJsonConverter {
                     codeBlock.append(lines[i]).append("\n");
                     i++;
                 }
-                addCodeBlock(content, codeBlock.toString().trim());
+                addCodeBlock(content, codeBlock.toString());
                 continue;
             }
             
@@ -132,8 +134,9 @@ public final class MarkdownToJsonConverter {
                 text.contains("~~") || text.contains("`") ||
                 (text.contains("[") && text.contains("]") && text.contains("(") && text.contains(")"))) {
 
-            // Process the text with mixed formatting
-            processMixedFormatting(content, text);
+            // Process the text with mixed formatting for list items
+            processMixedFormattingForListItem(listItemNode, text);
+            content.add(listItemNode);
             return;
         }
         if (!text.isBlank()) {
@@ -313,7 +316,7 @@ public final class MarkdownToJsonConverter {
                 final String boldText = boldMatcher.group(3);
                 if (!boldText.isBlank()) {
                     final TextParagraphNode boldNode = new TextParagraphNode();
-                    boldNode.setText(boldText);
+                    boldNode.setText(" " + boldText + " ");
 
                     final List<TextMark> marks = new ArrayList<>();
                     final BoldMark boldMark = new BoldMark();
@@ -465,6 +468,272 @@ public final class MarkdownToJsonConverter {
         content.add(paragraphNode);
     }
     
+    private static void processMixedFormattingForListItem(final ParagraphDocumentNode listItemNode, final String text) {
+        final List<ParagraphNode> paragraphContent = new ArrayList<>();
+        
+        String remainingText = text;
+        
+        // Process the text in order of precedence
+        // First, check for links as they have the most complex structure
+        if (remainingText.contains("[") && remainingText.contains("]") && 
+            remainingText.contains("(") && remainingText.contains(")")) {
+            final Pattern linkPattern = Pattern.compile("\\[(.*?)\\]\\((.*?)\\)");
+            final Matcher linkMatcher = linkPattern.matcher(remainingText);
+            
+            while (linkMatcher.find()) {
+                // Add text before the link
+                if (linkMatcher.start() > 0) {
+                    final String beforeText = remainingText.substring(0, linkMatcher.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+                
+                // Add the link part
+                final String linkText = linkMatcher.group(1);
+                if (!linkText.isBlank()) {
+                    final TextParagraphNode linkNode = new TextParagraphNode();
+                    linkNode.setText(linkText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final LinkMark linkMark = new LinkMark();
+                    final LinkMark.Attrs attrs = new LinkMark.Attrs();
+                    attrs.setHref(linkMatcher.group(2));
+                    attrs.setTarget("_blank");
+                    attrs.setRel("noopener noreferrer nofollow");
+                    linkMark.setAttrs(attrs);
+                    marks.add(linkMark);
+
+                    linkNode.setMarks(marks);
+                    paragraphContent.add(linkNode);
+                }
+                
+                // Update remaining text
+                remainingText = remainingText.substring(linkMatcher.end());
+                linkMatcher.reset(remainingText);
+            }
+            
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
+                processTextWithFormatting(remainingText, paragraphContent);
+            }
+        }
+        // Then, check for links in other format
+        else if (remainingText.contains("[") && remainingText.contains("]") &&
+                remainingText.contains("http")) {
+            final Pattern linkPattern2 = Pattern.compile("\\[\\d+\\]:\\s*(https?://[^\\s]+)");
+            final Matcher linkMatcher2 = linkPattern2.matcher(remainingText);
+
+            while (linkMatcher2.find()) {
+                // Add text before the link
+                if (linkMatcher2.start() > 0) {
+                    final String beforeText = remainingText.substring(0, linkMatcher2.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+
+                // Add the link part
+                final String linkText = linkMatcher2.group(1);
+                if (!linkText.isBlank()) {
+                    final TextParagraphNode linkNode = new TextParagraphNode();
+                    linkNode.setText(linkText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final LinkMark linkMark = new LinkMark();
+                    final LinkMark.Attrs attrs = new LinkMark.Attrs();
+                    attrs.setHref(linkMatcher2.group(2));
+                    attrs.setTarget("_blank");
+                    attrs.setRel("noopener noreferrer nofollow");
+                    linkMark.setAttrs(attrs);
+                    marks.add(linkMark);
+
+                    linkNode.setMarks(marks);
+                    paragraphContent.add(linkNode);
+                }
+
+                // Update remaining text
+                remainingText = remainingText.substring(linkMatcher2.end());
+                linkMatcher2.reset(remainingText);
+            }
+
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
+                processTextWithFormatting(remainingText, paragraphContent);
+            }
+        }
+        // Then check for bold text
+        else if (remainingText.contains("**") || remainingText.contains("__")) {
+            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)?(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(\\s|\\n|$)?");
+            final Matcher boldMatcher = boldPattern.matcher(remainingText);
+            
+            while (boldMatcher.find()) {
+                // Add text before the bold part
+                if (boldMatcher.start() > 0) {
+                    final String beforeText = remainingText.substring(0, boldMatcher.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+                
+                // Add the bold part
+                final String boldText = boldMatcher.group(3);
+                if (!boldText.isBlank()) {
+                    final TextParagraphNode boldNode = new TextParagraphNode();
+                    boldNode.setText(" " + boldText + " ");
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final BoldMark boldMark = new BoldMark();
+                    marks.add(boldMark);
+
+                    boldNode.setMarks(marks);
+                    paragraphContent.add(boldNode);
+                }
+
+                // Update remaining text
+                remainingText = remainingText.substring(boldMatcher.end());
+                boldMatcher.reset(remainingText);
+            }
+            
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
+                processTextWithFormatting(remainingText, paragraphContent);
+            }
+        }
+        // Then check for italic text
+        else if (remainingText.contains(" *") || remainingText.contains(" _")) {
+            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)?(\\*|_)([\\s\\S]*?)(\\*|_)(\\s|\\n|$)?");
+            final Matcher italicMatcher = italicPattern.matcher(remainingText);
+
+            while (italicMatcher.find()) {
+                // Add text before the italic part
+                if (italicMatcher.start() > 0) {
+                    final String beforeText = remainingText.substring(0, italicMatcher.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+
+                // Add the italic part
+                final String italicText = italicMatcher.group(2);
+                if (!italicText.isBlank()) {
+                    final TextParagraphNode italicNode = new TextParagraphNode();
+                    italicNode.setText(italicText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final ItalicMark italicMark = new ItalicMark();
+                    marks.add(italicMark);
+
+                    italicNode.setMarks(marks);
+                    paragraphContent.add(italicNode);
+                }
+
+                // Update remaining text
+                remainingText = remainingText.substring(italicMatcher.end());
+                italicMatcher.reset(remainingText);
+            }
+
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
+                processTextWithFormatting(remainingText, paragraphContent);
+            }
+        }
+        // Then check for strikethrough text
+        else if (remainingText.contains("~~")) {
+            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)?~~([\\s\\S]*?)~~(\\s|\\n|$)?");
+            final Matcher strikeMatcher = strikePattern.matcher(remainingText);
+            
+            while (strikeMatcher.find()) {
+                // Add text before the strikethrough part
+                if (strikeMatcher.start() > 0) {
+                    final String beforeText = remainingText.substring(0, strikeMatcher.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+                
+                // Add the strikethrough part
+                final String strikeText = strikeMatcher.group(2);
+                if (!strikeText.isBlank()) {
+                    final TextParagraphNode strikeNode = new TextParagraphNode();
+                    strikeNode.setText(strikeText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final StrikeMark strikeMark = new StrikeMark();
+                    marks.add(strikeMark);
+
+                    strikeNode.setMarks(marks);
+                    paragraphContent.add(strikeNode);
+                }
+
+                // Update remaining text
+                remainingText = remainingText.substring(strikeMatcher.end());
+                strikeMatcher.reset(remainingText);
+            }
+            
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
+                processTextWithFormatting(remainingText, paragraphContent);
+            }
+        }
+        // Then check for inline code
+        else if (remainingText.contains("`")) {
+            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)?`([\\s\\S]*?)`(\\s|\\n|$)?");
+            final Matcher codeMatcher = codePattern.matcher(remainingText);
+            
+            while (codeMatcher.find()) {
+                // Add text before the code
+                if (codeMatcher.start() > 0) {
+                    final String beforeText = remainingText.substring(0, codeMatcher.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormatting(beforeText, paragraphContent);
+                    }
+                }
+                
+                // Add the code part
+                final String codeText = codeMatcher.group(2);
+                if (!codeText.isBlank()) {
+                    final TextParagraphNode codeNode = new TextParagraphNode();
+                    codeNode.setText(codeText);
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final CodeMark codeMark = new CodeMark();
+                    marks.add(codeMark);
+
+                    codeNode.setMarks(marks);
+                    paragraphContent.add(codeNode);
+                }
+                
+                // Update remaining text
+                remainingText = remainingText.substring(codeMatcher.end());
+                codeMatcher.reset(remainingText);
+            }
+            
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
+                processTextWithFormatting(remainingText, paragraphContent);
+            }
+        }
+        // If no formatting was found, add as plain text
+        else {
+            if (!remainingText.isBlank()) {
+                final TextParagraphNode textNode = new TextParagraphNode();
+                textNode.setText(remainingText);
+                textNode.setMarks(null);
+                paragraphContent.add(textNode);
+            }
+        }
+        
+        listItemNode.setContent(paragraphContent);
+        listItemNode.setAttrs(new ParagraphDocumentNode.Attrs());
+    }
+    
     private static void processTextWithFormatting(final String text, final List<ParagraphNode> paragraphContent) {
         // This is a recursive method to handle nested formatting
         // For example, if we have "**bold with *italic* text**"
@@ -572,7 +841,7 @@ public final class MarkdownToJsonConverter {
                 final String boldText = boldMatcher.group(3);
                 if (!boldText.isBlank()) {
                     final TextParagraphNode boldNode = new TextParagraphNode();
-                    boldNode.setText(boldText);
+                    boldNode.setText(" " + boldText + " ");
 
                     final List<TextMark> marks = new ArrayList<>();
                     final BoldMark boldMark = new BoldMark();

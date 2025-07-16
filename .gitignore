@@ -14,3 +14,6 @@ meta
 # Project
 data
 *Test.java
+
+#Mac OS stuff
+.DS_Store
