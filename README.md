@@ -192,5 +192,3 @@ docker run -e "ALLURE_ENDPOINT=http://localhost:8080" \
            -e "ALLURE_TESTCASE_FILTER=id in [123, 124]" \
            ghcr.io/eroshenkoam/allure-testops-utils rollback-testcases
 ```
-
-
