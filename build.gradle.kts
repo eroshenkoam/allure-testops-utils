@@ -79,4 +79,12 @@ dependencies {
     implementation("com.google.code.findbugs:jsr305:3.0.2")
 
     implementation("io.qameta.allure:allure-model:2.24.0")
+
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+    testImplementation("org.assertj:assertj-core:3.23.1")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
