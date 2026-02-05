@@ -24,6 +24,9 @@ import java.util.regex.Pattern;
  */
 public final class MarkdownToJsonConverter {
 
+    public static final String ITALIC_START = "ITALICSTART";
+    public static final String ITALIC_END = "ITALICEND";
+
     private MarkdownToJsonConverter() {}
     /**
      * Converts Markdown text to JSON structure.
@@ -764,8 +767,8 @@ public final class MarkdownToJsonConverter {
         // For example, if we have "**bold with *italic* text**"
 
         // First, check for our special italic markers
-        if (text.contains("ITALIC_START") && text.contains("ITALIC_END")) {
-            final Pattern italicMarkerPattern = Pattern.compile("(.*?)ITALIC_START(.*?)ITALIC_END(.*)");
+        if (text.contains(ITALIC_START) && text.contains(ITALIC_END)) {
+            final Pattern italicMarkerPattern = Pattern.compile("(.*?)ITALICSTART(.*?)ITALICEND(.*)");
             final Matcher italicMarkerMatcher = italicMarkerPattern.matcher(text);
             
             if (italicMarkerMatcher.matches()) {
@@ -1056,7 +1059,7 @@ public final class MarkdownToJsonConverter {
 
     /**
      * Post-processes the document to handle multiline italic text by finding
-     * ITALIC_START and ITALIC_END markers and properly distributing italic formatting.
+     * ITALICSTART and ITALICEND markers and properly distributing italic formatting.
      * 
      * @param content The document content to process
      */
@@ -1070,7 +1073,7 @@ public final class MarkdownToJsonConverter {
                     for (final ParagraphNode paragraphNode1 : paragraphContent) {
                         if (paragraphNode1 instanceof TextParagraphNode textNode) {
                             final String text = textNode.getText();
-                            if (text != null && (text.contains("ITALIC_START") || text.contains("ITALIC_END"))) {
+                            if (text != null && (text.contains(ITALIC_START) || text.contains(ITALIC_END))) {
                                 hasItalicMarkers = true;
                                 break;
                             }
@@ -1140,10 +1143,10 @@ public final class MarkdownToJsonConverter {
             final TextNodeInfo textNodeInfo = textNodes.get(i);
             final String text = textNodeInfo.textNode.getText();
             if (text != null) {
-                if (text.contains("ITALIC_START")) {
+                if (text.contains(ITALIC_START)) {
                     startIndex = i;
                 }
-                if (text.contains("ITALIC_END")) {
+                if (text.contains(ITALIC_END)) {
                     endIndex = i;
                     break;
                 }
@@ -1184,12 +1187,12 @@ public final class MarkdownToJsonConverter {
         // Process the start node
         final TextNodeInfo startNodeInfo = textNodes.get(startIndex);
         final String startText = startNodeInfo.textNode.getText();
-        final int italicStartPos = startText.indexOf("ITALIC_START");
+        final int italicStartPos = startText.indexOf(ITALIC_START);
         
         if (italicStartPos > 0) {
             // Split the start node
             final String beforeText = startText.substring(0, italicStartPos);
-            final String afterText = startText.substring(italicStartPos + "ITALIC_START".length());
+            final String afterText = startText.substring(italicStartPos + ITALIC_START.length());
             
             // Create new nodes
             final TextParagraphNode beforeNode = new TextParagraphNode();
@@ -1204,17 +1207,17 @@ public final class MarkdownToJsonConverter {
             startNodeInfo.textNode.setText(afterText);
         } else if (italicStartPos == 0) {
             // Remove the marker from the start
-            startNodeInfo.textNode.setText(startText.substring("ITALIC_START".length()));
+            startNodeInfo.textNode.setText(startText.substring(ITALIC_START.length()));
         }
         
         // Process the end node
         final TextNodeInfo endNodeInfo = textNodes.get(endIndex);
         final String endText = endNodeInfo.textNode.getText();
-        final int italicEndPos = endText.indexOf("ITALIC_END");
+        final int italicEndPos = endText.indexOf(ITALIC_END);
         
         if (italicEndPos >= 0) {
             final String beforeText = endText.substring(0, italicEndPos);
-            final String afterText = endText.substring(italicEndPos + "ITALIC_END".length());
+            final String afterText = endText.substring(italicEndPos + ITALIC_END.length());
             
             if (!beforeText.isEmpty()) {
                 // Split the end node
@@ -1281,10 +1284,10 @@ public final class MarkdownToJsonConverter {
             if (node instanceof TextParagraphNode textNode) {
                 final String text = textNode.getText();
                 if (text != null) {
-                    if (text.contains("ITALIC_START")) {
+                    if (text.contains(ITALIC_START)) {
                         startIndex = i;
                     }
-                    if (text.contains("ITALIC_END")) {
+                    if (text.contains(ITALIC_END)) {
                         endIndex = i;
                         break;
                     }
@@ -1314,12 +1317,12 @@ public final class MarkdownToJsonConverter {
         // Process the start node
         final TextParagraphNode startNode = (TextParagraphNode) paragraphContent.get(currentStartIndex);
         final String startText = startNode.getText();
-        final int italicStartPos = startText.indexOf("ITALIC_START");
+        final int italicStartPos = startText.indexOf(ITALIC_START);
         
         if (italicStartPos > 0) {
             // Split the start node
             final String beforeText = startText.substring(0, italicStartPos);
-            final String afterText = startText.substring(italicStartPos + "ITALIC_START".length());
+            final String afterText = startText.substring(italicStartPos + ITALIC_START.length());
             
             // Create new nodes
             final TextParagraphNode beforeNode = new TextParagraphNode();
@@ -1339,17 +1342,17 @@ public final class MarkdownToJsonConverter {
             currentEndIndex++;
         } else if (italicStartPos == 0) {
             // Remove the marker from the start
-            startNode.setText(startText.substring("ITALIC_START".length()));
+            startNode.setText(startText.substring(ITALIC_START.length()));
         }
         
         // Process the end node
         final TextParagraphNode endNode = (TextParagraphNode) paragraphContent.get(currentEndIndex);
         final String endText = endNode.getText();
-        final int italicEndPos = endText.indexOf("ITALIC_END");
+        final int italicEndPos = endText.indexOf(ITALIC_END);
         
         if (italicEndPos >= 0) {
             final String beforeText = endText.substring(0, italicEndPos);
-            final String afterText = endText.substring(italicEndPos + "ITALIC_END".length());
+            final String afterText = endText.substring(italicEndPos + ITALIC_END.length());
             
             if (!beforeText.isEmpty()) {
                 // Split the end node
@@ -1425,7 +1428,7 @@ public final class MarkdownToJsonConverter {
             
             // Mark the italic content with special markers that we can identify later
             // We'll use a unique marker that won't conflict with other markdown syntax
-            result.append("ITALIC_START").append(italicContent).append("ITALIC_END");
+            result.append(ITALIC_START).append(italicContent).append(ITALIC_END);
             
             lastEnd = matcher.end();
         }
