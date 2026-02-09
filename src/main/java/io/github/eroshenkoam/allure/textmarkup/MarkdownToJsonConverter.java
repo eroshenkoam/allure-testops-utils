@@ -102,6 +102,9 @@ public final class MarkdownToJsonConverter {
         // Post-process the document to handle multiline italic text
         postProcessMultilineItalic(content);
         
+        // Post-process to merge split italic markers
+        postProcessSplitItalicMarkers(content);
+        
         return document;
     }
     
@@ -221,8 +224,54 @@ public final class MarkdownToJsonConverter {
         String remainingText = text;
         
         // Process the text in order of precedence
-        // First, check for links as they have the most complex structure
-        if (remainingText.contains("[") && remainingText.contains("]") && 
+        // First, check for bold and italic (they can contain other formatting inside)
+        // Then check for links, strikethrough, and inline code
+        
+        // Check for bold text first
+        if (remainingText.contains("**") || remainingText.contains("__")) {
+            // Require space or line boundary before opening marker
+            // Allow space, newline, end, or non-alphanumeric (excluding markup chars) after closing marker
+            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(?=\\s|\\n|$|[^a-zA-Z0-9])");
+            final Matcher boldMatcher = boldPattern.matcher(remainingText);
+            
+            while (boldMatcher.find()) {
+                // Add text before the bold part
+                if (boldMatcher.start() > 0) {
+                    final String beforeText = remainingText.substring(0, boldMatcher.start());
+                    if (!beforeText.isBlank()) {
+                        // Process the before text for other formatting
+                        processTextWithFormattingAndAdditionalMark(beforeText, paragraphContent, List.of());
+                    }
+                }
+                
+                // Add the bold part
+                final String boldText = boldMatcher.group(3);
+                if (!boldText.isBlank()) {
+                    final TextParagraphNode boldNode = new TextParagraphNode();
+                    boldNode.setText(" " + boldText + " ");
+
+                    final List<TextMark> marks = new ArrayList<>();
+                    final BoldMark boldMark = new BoldMark();
+                    marks.add(boldMark);
+
+                    processTextWithFormattingAndAdditionalMark(boldText, paragraphContent, marks);
+                    //boldNode.setMarks(marks);
+                    //paragraphContent.add(boldNode);
+                }
+
+                // Update remaining text
+                remainingText = remainingText.substring(boldMatcher.end());
+                boldMatcher.reset(remainingText);
+            }
+            
+            // Process any remaining text
+            if (!remainingText.isBlank()) {
+                processTextWithFormattingAndAdditionalMark(remainingText, paragraphContent, List.of());
+            }
+        }
+        
+        // Then check for links
+        else if (remainingText.contains("[") && remainingText.contains("]") && 
             remainingText.contains("(") && remainingText.contains(")")) {
             final Pattern linkPattern = Pattern.compile("\\[(.*?)\\]\\((.*?)\\)");
             final Matcher linkMatcher = linkPattern.matcher(remainingText);
@@ -312,50 +361,11 @@ public final class MarkdownToJsonConverter {
             }
         }
 
-        // Then check for bold text
-        else if (remainingText.contains("**") || remainingText.contains("__")) {
-            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)?(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(\\s|\\n|$)?");
-            final Matcher boldMatcher = boldPattern.matcher(remainingText);
-            
-            while (boldMatcher.find()) {
-                // Add text before the bold part
-                if (boldMatcher.start() > 0) {
-                    final String beforeText = remainingText.substring(0, boldMatcher.start());
-                    if (!beforeText.isBlank()) {
-                        // Process the before text for other formatting
-                        processTextWithFormattingAndAdditionalMark(beforeText, paragraphContent, List.of());
-                    }
-                }
-                
-                // Add the bold part
-                final String boldText = boldMatcher.group(3);
-                if (!boldText.isBlank()) {
-                    final TextParagraphNode boldNode = new TextParagraphNode();
-                    boldNode.setText(" " + boldText + " ");
-
-                    final List<TextMark> marks = new ArrayList<>();
-                    final BoldMark boldMark = new BoldMark();
-                    marks.add(boldMark);
-
-                    processTextWithFormattingAndAdditionalMark(boldText, paragraphContent, marks);
-                    //boldNode.setMarks(marks);
-                    //paragraphContent.add(boldNode);
-                }
-
-                // Update remaining text
-                remainingText = remainingText.substring(boldMatcher.end());
-                boldMatcher.reset(remainingText);
-            }
-            
-            // Process any remaining text
-            if (!remainingText.isBlank()) {
-                processTextWithFormattingAndAdditionalMark(remainingText, paragraphContent, List.of());
-            }
-        }
-
         // Then check for italic text
         else if (remainingText.contains("*") || remainingText.contains("_")) {
-            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)?(\\*|_)([\\s\\S]*?)(\\*|_)(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching identifiers like table_name
+            // Allow space, newline, end, or non-alphanumeric (excluding markup chars) after closing marker
+            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)(\\*|_)([\\s\\S]*?)(\\*|_)(?=\\s|\\n|$|[^a-zA-Z0-9])");
             final Matcher italicMatcher = italicPattern.matcher(remainingText);
 
             while (italicMatcher.find()) {
@@ -381,7 +391,7 @@ public final class MarkdownToJsonConverter {
                     processTextWithFormattingAndAdditionalMark(italicText, paragraphContent, marks);
 
                     //italicNode.setMarks(marks);
-                    //paragraphContent.add(italicNode);
+                    //italicNode.add(italicNode);
                 }
 
                 // Update remaining text
@@ -397,7 +407,8 @@ public final class MarkdownToJsonConverter {
 
         // Then check for strikethrough text
         else if (remainingText.contains("~~")) {
-            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)?~~([\\s\\S]*?)~~(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching ~~ in middle of text
+            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)~~([\\s\\S]*?)~~(\\s|\\n|$)");
             final Matcher strikeMatcher = strikePattern.matcher(remainingText);
             
             while (strikeMatcher.find()) {
@@ -437,7 +448,8 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for inline code
         else if (remainingText.contains("`")) {
-            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)?`([\\s\\S]*?)`(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching ` in middle of text
+            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)`([\\s\\S]*?)`(\\s|\\n|$)");
             final Matcher codeMatcher = codePattern.matcher(remainingText);
             
             while (codeMatcher.find()) {
@@ -588,7 +600,9 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for bold text
         else if (remainingText.contains("**") || remainingText.contains("__")) {
-            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)?(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(\\s|\\n|$)?");
+            // Require space or line boundary before opening marker
+            // Allow space, newline, end, or non-alphanumeric (excluding markup chars) after closing marker
+            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(?=\\s|\\n|$|[^a-zA-Z0-9])");
             final Matcher boldMatcher = boldPattern.matcher(remainingText);
             
             while (boldMatcher.find()) {
@@ -628,7 +642,9 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for italic text
         else if (remainingText.contains("*") || remainingText.contains("_")) {
-            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)?(\\*|_)([\\s\\S]*?)(\\*|_)(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching identifiers like table_name
+            // Allow space, newline, end, or non-alphanumeric (excluding markup chars) after closing marker
+            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)(\\*|_)([\\s\\S]*?)(\\*|_)(?=\\s|\\n|$|[^a-zA-Z0-9])");
             final Matcher italicMatcher = italicPattern.matcher(remainingText);
 
             while (italicMatcher.find()) {
@@ -668,7 +684,8 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for strikethrough text
         else if (remainingText.contains("~~")) {
-            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)?~~([\\s\\S]*?)~~(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching ~~ in middle of text
+            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)~~([\\s\\S]*?)~~(\\s|\\n|$)");
             final Matcher strikeMatcher = strikePattern.matcher(remainingText);
             
             while (strikeMatcher.find()) {
@@ -708,7 +725,8 @@ public final class MarkdownToJsonConverter {
         }
         // Then check for inline code
         else if (remainingText.contains("`")) {
-            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)?`([\\s\\S]*?)`(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching ` in middle of text
+            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)`([\\s\\S]*?)`(\\s|\\n|$)");
             final Matcher codeMatcher = codePattern.matcher(remainingText);
             
             while (codeMatcher.find()) {
@@ -888,7 +906,9 @@ public final class MarkdownToJsonConverter {
 
         // Check for italic text
         if (text.contains("*") || text.contains("_")) {
-            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)?(\\*|_)([\\s\\S]*?)(\\*|_)(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching identifiers like table_name
+            // Allow space, newline, end, or non-alphanumeric (excluding markup chars) after closing marker
+            final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)(\\*|_)([\\s\\S]*?)(\\*|_)(?=\\s|\\n|$|[^a-zA-Z0-9])");
             final Matcher italicMatcher = italicPattern.matcher(text);
 
             while (italicMatcher.find()) {
@@ -927,7 +947,9 @@ public final class MarkdownToJsonConverter {
 
         // Check for bold text
         if (text.contains("**") || text.contains("__")) {
-            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)?(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(\\s|\\n|$)?");
+            // Require space or line boundary before opening marker
+            // Allow space, newline, end, or non-alphanumeric (excluding markup chars) after closing marker
+            final Pattern boldPattern = Pattern.compile("(^|\\s|\\n)(\\*\\*|__)([\\s\\S]*?)(\\*\\*|__)(?=\\s|\\n|$|[^a-zA-Z0-9])");
             final Matcher boldMatcher = boldPattern.matcher(text);
 
             while (boldMatcher.find()) {
@@ -966,7 +988,8 @@ public final class MarkdownToJsonConverter {
 
         // Check for strikethrough text
         if (text.contains("~~")) {
-            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)?~~([\\s\\S]*?)~~(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching ~~ in middle of text
+            final Pattern strikePattern = Pattern.compile("(^|\\s|\\n)~~([\\s\\S]*?)~~(\\s|\\n|$)");
             final Matcher strikeMatcher = strikePattern.matcher(text);
 
             while (strikeMatcher.find()) {
@@ -1005,7 +1028,8 @@ public final class MarkdownToJsonConverter {
 
         // Check for inline code
         if (text.contains("`")) {
-            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)?`([\\s\\S]*?)`(\\s|\\n|$)?");
+            // Require space or line boundary to avoid matching ` in middle of text
+            final Pattern codePattern = Pattern.compile("(^|\\s|\\n)`([\\s\\S]*?)`(\\s|\\n|$)");
             final Matcher codeMatcher = codePattern.matcher(text);
 
             while (codeMatcher.find()) {
@@ -1107,6 +1131,134 @@ public final class MarkdownToJsonConverter {
                         paragraphNode1 instanceof TextParagraphNode textNode && 
                         (textNode.getText() == null || textNode.getText().trim().isEmpty())
                     );
+                }
+            }
+        }
+    }
+    
+    /**
+     * Post-processes the document to merge split italic markers.
+     * Handles cases where italic markers (*) got split into separate text nodes:
+     * Pattern 1: Current node contains *, next node is just "*"
+     * Pattern 2: Current node contains *, next node starts with "*"
+     * These should be merged and marked as italic.
+     * 
+     * @param content The document content to process
+     */
+    private static void postProcessSplitItalicMarkers(final List<DocumentNode> content) {
+        for (final DocumentNode node : content) {
+            if (node instanceof ParagraphDocumentNode paragraphNode) {
+                final List<ParagraphNode> paragraphContent = paragraphNode.getContent();
+                if (paragraphContent == null || paragraphContent.size() < 2) {
+                    continue;
+                }
+                
+                // Iterate through adjacent text nodes
+                for (int i = 0; i < paragraphContent.size() - 1; i++) {
+                    final ParagraphNode currentNode = paragraphContent.get(i);
+                    final ParagraphNode nextNode = paragraphContent.get(i + 1);
+                    
+                    if (!(currentNode instanceof TextParagraphNode currentText) || 
+                        !(nextNode instanceof TextParagraphNode nextText)) {
+                        continue;
+                    }
+                    
+                    final String currentTextStr = currentText.getText();
+                    final String nextTextStr = nextText.getText();
+                    final List<TextMark> nextMarks = nextText.getMarks();
+                    
+                    boolean foundPattern = false;
+                    
+                    // Pattern 1: Next text is just * with no marks
+                    if (nextTextStr != null && nextTextStr.equals("*") &&
+                        (nextMarks == null || nextMarks.isEmpty()) &&
+                        currentTextStr != null && !currentTextStr.isEmpty()) {
+                        
+                        // Find where the opening * is in the current text
+                        String newText = currentTextStr;
+                        boolean foundOpeningStar = false;
+                        
+                        // Check if current text ends with *
+                        if (currentTextStr.endsWith("*")) {
+                            newText = currentTextStr.substring(0, currentTextStr.length() - 1);
+                            foundOpeningStar = true;
+                        }
+                        // Check if current text contains * after leading whitespace
+                        else {
+                            final int firstStarIndex = currentTextStr.indexOf('*');
+                            if (firstStarIndex >= 0) {
+                                // Remove the first * we find
+                                newText = currentTextStr.substring(0, firstStarIndex) + 
+                                         currentTextStr.substring(firstStarIndex + 1);
+                                foundOpeningStar = true;
+                            }
+                        }
+                        
+                        if (foundOpeningStar) {
+                            // Update the text without the star marker
+                            currentText.setText(newText);
+                            
+                            // Add italic mark to current node
+                            List<TextMark> currentMarks = currentText.getMarks();
+                            if (currentMarks == null) {
+                                currentMarks = new ArrayList<>();
+                            } else {
+                                currentMarks = new ArrayList<>(currentMarks);
+                            }
+                            
+                            // Check if italic mark already exists
+                            final boolean hasItalic = currentMarks.stream()
+                                    .anyMatch(mark -> mark instanceof ItalicMark);
+                            if (!hasItalic) {
+                                currentMarks.add(new ItalicMark());
+                                currentText.setMarks(currentMarks);
+                            }
+                            
+                            // Remove the next node (the standalone *)
+                            paragraphContent.remove(i + 1);
+                            foundPattern = true;
+                        }
+                    }
+                    // Pattern 2: Next text STARTS with * (but has more content after)
+                    else if (nextTextStr != null && nextTextStr.startsWith("*") && nextTextStr.length() > 1 &&
+                             (nextMarks == null || nextMarks.isEmpty()) &&
+                             currentTextStr != null && !currentTextStr.isEmpty()) {
+                        
+                        // Check if current text contains an opening *
+                        final int firstStarIndex = currentTextStr.indexOf('*');
+                        if (firstStarIndex >= 0) {
+                            // Remove the opening * from current text
+                            final String newCurrentText = currentTextStr.substring(0, firstStarIndex) + 
+                                                         currentTextStr.substring(firstStarIndex + 1);
+                            currentText.setText(newCurrentText);
+                            
+                            // Remove the closing * from next text
+                            final String newNextText = nextTextStr.substring(1);
+                            nextText.setText(newNextText);
+                            
+                            // Add italic mark to current node
+                            List<TextMark> currentMarks = currentText.getMarks();
+                            if (currentMarks == null) {
+                                currentMarks = new ArrayList<>();
+                            } else {
+                                currentMarks = new ArrayList<>(currentMarks);
+                            }
+                            
+                            final boolean hasItalic = currentMarks.stream()
+                                    .anyMatch(mark -> mark instanceof ItalicMark);
+                            if (!hasItalic) {
+                                currentMarks.add(new ItalicMark());
+                                currentText.setMarks(currentMarks);
+                            }
+                            
+                            foundPattern = true;
+                        }
+                    }
+                    
+                    // If we found and processed a pattern, stay at the same index to check for more
+                    if (foundPattern) {
+                        i--;
+                    }
                 }
             }
         }
@@ -1413,7 +1565,8 @@ public final class MarkdownToJsonConverter {
     private static String processMultilineItalicText(final String text) {
         // Use a more sophisticated approach to find italic blocks that span multiple lines
         // We'll use a pattern that matches _text_ where text can contain newlines
-        final Pattern italicPattern = Pattern.compile("(?<!\\*)_([^_\\n]*(?:\\n[^_\\n]*)*?)_(?!\\*)");
+        // Require space or line boundary before opening _ and after closing _
+        final Pattern italicPattern = Pattern.compile("(^|\\s|\\n)_([^_\\n]*(?:\\n[^_\\n]*)*?)_(?=\\s|\\n|$|[^a-zA-Z0-9])");
         final Matcher matcher = italicPattern.matcher(text);
         
         final StringBuilder result = new StringBuilder();
@@ -1423,12 +1576,18 @@ public final class MarkdownToJsonConverter {
             // Add text before the italic block
             result.append(text, lastEnd, matcher.start());
             
+            // Preserve the leading boundary (space, newline, or start of string)
+            final String leadingBoundary = matcher.group(1);
+            result.append(leadingBoundary);
+            
             // Get the italic content (without the surrounding underscores)
-            final String italicContent = matcher.group(1);
+            final String italicContent = matcher.group(2);
             
             // Mark the italic content with special markers that we can identify later
             // We'll use a unique marker that won't conflict with other markdown syntax
             result.append(ITALIC_START).append(italicContent).append(ITALIC_END);
+            
+            // Note: trailing boundary is not consumed by lookahead, so it will be included in lastEnd
             
             lastEnd = matcher.end();
         }
