@@ -62,9 +62,6 @@ public class LaunchCleanCommand extends AbstractTestOpsCommand {
 
         for (int index = 0; index < launchesToDelete.size(); index++) {
             final Launch launch = launchesToDelete.get(index);
-            final String launchName = Optional.ofNullable(launch.getName()).orElse("<no-name>");
-            System.out.printf("Deleting launch [%s/%s]: id=%s, name=%s%n",
-                    index + 1, launchesToDelete.size(), launch.getId(), launchName);
             executeRequest(service.delete(launch.getId()));
             System.out.printf("Deleted launch [%s/%s]: id=%s%n",
                     index + 1, launchesToDelete.size(), launch.getId());
