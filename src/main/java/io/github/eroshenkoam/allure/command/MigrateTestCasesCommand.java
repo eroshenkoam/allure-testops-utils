@@ -20,6 +20,7 @@ import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import picocli.CommandLine;
@@ -52,7 +53,8 @@ import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKN
 public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     private static final String META_TIMINGS = "timings.json";
-    private static final String RQL_TEST_CASE = "not layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]";
+    private static final String RQL_TEST_CASE = "not layer in [\"Shared Steps\", \"Shared\", \"Шаги\", \"Шаг\"]"
+            + " and deleted=false";
 
     private static final Pattern HEADER_PATTERN =
             Pattern.compile("#+ (?<text>.+)");
@@ -136,7 +138,14 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private void migrateExpectedSteps(final TestCaseScenarioService scenarioService,
                                       final Long testCaseId) throws Exception {
         final ScenarioNormalized oldScenario = executeRequest(scenarioService.getScenario(testCaseId));
+        if (oldScenario == null || oldScenario.getScenarioSteps() == null || oldScenario.getScenarioSteps().isEmpty()) {
+            return;
+        }
         final TestCaseScenarioV2 migratedScenario = migrateScenario(scenarioService, testCaseId, oldScenario);
+        if (migratedScenario == null || migratedScenario.getSteps() == null || migratedScenario.getSteps().isEmpty()) {
+            System.out.printf("Scenario for testcase %d migrate with empty result. Skipping\n", testCaseId);
+            return;
+        }
         System.out.println(new ObjectMapper().writeValueAsString(migratedScenario));
         executeRequest(scenarioService.setScenario(testCaseId, migratedScenario));
     }
@@ -233,7 +242,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                             : createBodyStep(line.getContent());
                     result.add(step);
                 }
-                case ATTACHMENT -> result.add(new AttachmentStep().setAttachmentId(Long.parseLong(line.getContent())));
+                case ATTACHMENT -> addAttachmentStep(tcScenarioService, Long.parseLong(line.getContent()))
+                        .ifPresent(result::add);
                 case TABLE -> {
                     final Long attachmentId = createTable(tcScenarioService, line.getContent(), testCaseId);
                     result.add(new AttachmentStep().setAttachmentId(attachmentId));
@@ -241,6 +251,20 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             }
         }
         return result;
+    }
+
+    private static Optional<ScenarioStep> addAttachmentStep(final TestCaseScenarioService tcScenarioService,
+                                                               final Long attachmentId) {
+        try (ResponseBody body = executeRequest(tcScenarioService.getAttachmentContent(attachmentId));) {
+            if (body != null && body.contentLength() > 0) {
+                return Optional.of(new AttachmentStep().setAttachmentId(attachmentId));
+            }
+            System.out.printf("Attachment %d content is missing, skipping%n", attachmentId);
+            return Optional.empty();
+        } catch (Exception e) {
+            System.out.printf("Attachment %d not found, skipping%n", attachmentId);
+            return Optional.empty();
+        }
     }
 
     private static List<ParsedLine> getParsedLines(final String text) {
@@ -391,6 +415,9 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     }
 
     private <T> void writeMeta(final String name, final T type) throws IOException {
+        if (Objects.isNull(metaPath)) {
+            return;
+        }
         final Path file = metaPath.resolve(name);
         Files.createDirectories(metaPath);
         MAPPER.writeValue(file.toFile(), type);

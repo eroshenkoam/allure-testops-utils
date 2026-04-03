@@ -11,6 +11,8 @@ docker
 build
 meta
 
+bin
+git
 # Project
 data
 *Test.java
