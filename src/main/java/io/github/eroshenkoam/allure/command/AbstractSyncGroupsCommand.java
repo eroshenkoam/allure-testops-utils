@@ -1,9 +1,9 @@
 package io.github.eroshenkoam.allure.command;
 
-import io.qameta.allure.ee.client.AccountService;
-import io.qameta.allure.ee.client.GroupService;
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.dto.*;
+import io.github.eroshenkoam.allure.client.AccountService;
+import io.github.eroshenkoam.allure.client.GroupService;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.dto.*;
 
 import java.io.IOException;
 import java.util.List;

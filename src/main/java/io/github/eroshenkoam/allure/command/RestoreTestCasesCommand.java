@@ -1,15 +1,15 @@
 package io.github.eroshenkoam.allure.command;
 
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.TestCaseScenarioService;
-import io.qameta.allure.ee.client.TestCaseService;
-import io.qameta.allure.ee.client.dto.Page;
-import io.qameta.allure.ee.client.dto.ScenarioNormalized;
-import io.qameta.allure.ee.client.dto.ScenarioStep;
-import io.qameta.allure.ee.client.dto.ScenarioStepCreate;
-import io.qameta.allure.ee.client.dto.ScenarioStepResponse;
-import io.qameta.allure.ee.client.dto.TestCaseAttachment;
-import io.qameta.allure.ee.client.dto.TestCasePatch;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.TestCaseScenarioService;
+import io.github.eroshenkoam.allure.client.TestCaseService;
+import io.github.eroshenkoam.allure.client.dto.Page;
+import io.github.eroshenkoam.allure.client.dto.ScenarioNormalized;
+import io.github.eroshenkoam.allure.client.dto.ScenarioStep;
+import io.github.eroshenkoam.allure.client.dto.ScenarioStepCreate;
+import io.github.eroshenkoam.allure.client.dto.ScenarioStepResponse;
+import io.github.eroshenkoam.allure.client.dto.TestCaseAttachment;
+import io.github.eroshenkoam.allure.client.dto.TestCasePatch;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;

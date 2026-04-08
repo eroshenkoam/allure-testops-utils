@@ -1,0 +1,3 @@
+[submodule "allure-ee-java"]
+	path = allure-ee-java
+	url = git@github.com:qameta/allure-ee-java.git

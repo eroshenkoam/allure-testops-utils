@@ -2,12 +2,12 @@ package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.qameta.allure.ee.client.dto.Issue;
-import io.qameta.allure.ee.client.dto.ScenarioNormalized;
-import io.qameta.allure.ee.client.dto.SharedStepAttachment;
-import io.qameta.allure.ee.client.dto.SharedStepUpdate;
-import io.qameta.allure.ee.client.dto.TestCaseAttachment;
-import io.qameta.allure.ee.client.dto.TestCasePatch;
+import io.github.eroshenkoam.allure.client.dto.Issue;
+import io.github.eroshenkoam.allure.client.dto.ScenarioNormalized;
+import io.github.eroshenkoam.allure.client.dto.SharedStepAttachment;
+import io.github.eroshenkoam.allure.client.dto.SharedStepUpdate;
+import io.github.eroshenkoam.allure.client.dto.TestCaseAttachment;
+import io.github.eroshenkoam.allure.client.dto.TestCasePatch;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import picocli.CommandLine;

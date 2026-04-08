@@ -1,11 +1,11 @@
 package io.github.eroshenkoam.allure.command;
 
-import io.qameta.allure.ee.client.ProjectService;
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.TestCaseScenarioService;
-import io.qameta.allure.ee.client.TestCaseService;
-import io.qameta.allure.ee.client.dto.Page;
-import io.qameta.allure.ee.client.dto.Project;
+import io.github.eroshenkoam.allure.client.ProjectService;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.TestCaseScenarioService;
+import io.github.eroshenkoam.allure.client.TestCaseService;
+import io.github.eroshenkoam.allure.client.dto.Page;
+import io.github.eroshenkoam.allure.client.dto.Project;
 import picocli.CommandLine;
 
 import java.io.IOException;
