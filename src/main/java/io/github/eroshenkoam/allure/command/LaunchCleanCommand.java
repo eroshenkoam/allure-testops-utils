@@ -1,9 +1,9 @@
 package io.github.eroshenkoam.allure.command;
 
-import io.qameta.allure.ee.client.LaunchService;
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.dto.Launch;
-import io.qameta.allure.ee.client.dto.Page;
+import io.github.eroshenkoam.allure.client.LaunchService;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.dto.Launch;
+import io.github.eroshenkoam.allure.client.dto.Page;
 import org.joda.time.Period;
 import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;

@@ -1,12 +1,12 @@
 package io.github.eroshenkoam.allure.command;
 
-import io.qameta.allure.ee.client.AccountService;
-import io.qameta.allure.ee.client.AdminAccountService;
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.dto.Account;
-import io.qameta.allure.ee.client.dto.AccountAuthority;
-import io.qameta.allure.ee.client.dto.Authority;
-import io.qameta.allure.ee.client.dto.Page;
+import io.github.eroshenkoam.allure.client.AccountService;
+import io.github.eroshenkoam.allure.client.AdminAccountService;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.dto.Account;
+import io.github.eroshenkoam.allure.client.dto.AccountAuthority;
+import io.github.eroshenkoam.allure.client.dto.Authority;
+import io.github.eroshenkoam.allure.client.dto.Page;
 import okhttp3.ResponseBody;
 import retrofit2.Response;
 

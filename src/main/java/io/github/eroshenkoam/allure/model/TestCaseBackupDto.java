@@ -1,12 +1,12 @@
 package io.github.eroshenkoam.allure.model;
 
-import io.qameta.allure.ee.client.dto.CustomFieldValue;
-import io.qameta.allure.ee.client.dto.Issue;
-import io.qameta.allure.ee.client.dto.Member;
-import io.qameta.allure.ee.client.dto.TestCase;
-import io.qameta.allure.ee.client.dto.TestCaseRelation;
-import io.qameta.allure.ee.client.dto.TestCaseScenario;
-import io.qameta.allure.ee.client.dto.TestTag;
+import io.github.eroshenkoam.allure.client.dto.CustomFieldValue;
+import io.github.eroshenkoam.allure.client.dto.Issue;
+import io.github.eroshenkoam.allure.client.dto.Member;
+import io.github.eroshenkoam.allure.client.dto.TestCase;
+import io.github.eroshenkoam.allure.client.dto.TestCaseRelation;
+import io.github.eroshenkoam.allure.client.dto.TestCaseScenario;
+import io.github.eroshenkoam.allure.client.dto.TestTag;
 import lombok.Data;
 import lombok.experimental.Accessors;
 

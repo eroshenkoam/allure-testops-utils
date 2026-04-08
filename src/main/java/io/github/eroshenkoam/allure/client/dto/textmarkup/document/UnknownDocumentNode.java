@@ -1,0 +1,19 @@
+package io.github.eroshenkoam.allure.client.dto.textmarkup.document;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.Data;
+import lombok.experimental.Accessors;
+
+import java.io.Serial;
+
+/**
+ * @author vbragin
+ */
+@Data
+@Accessors(chain = true)
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class UnknownDocumentNode implements DocumentNode {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+}

@@ -1,10 +1,10 @@
 package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.TestCaseService;
-import io.qameta.allure.ee.client.dto.TestCaseScenario;
-import io.qameta.allure.ee.client.dto.TestCaseStep;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.TestCaseService;
+import io.github.eroshenkoam.allure.client.dto.TestCaseScenario;
+import io.github.eroshenkoam.allure.client.dto.TestCaseStep;
 import picocli.CommandLine;
 import retrofit2.Response;
 

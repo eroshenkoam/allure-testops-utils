@@ -2,11 +2,11 @@ package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.TestResultService;
-import io.qameta.allure.ee.client.dto.Page;
-import io.qameta.allure.ee.client.dto.TestResultScenario;
-import io.qameta.allure.ee.client.dto.TestResultStep;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.TestResultService;
+import io.github.eroshenkoam.allure.client.dto.Page;
+import io.github.eroshenkoam.allure.client.dto.TestResultScenario;
+import io.github.eroshenkoam.allure.client.dto.TestResultStep;
 import io.qameta.allure.model.StepResult;
 import io.qameta.allure.model.TestResult;
 import picocli.CommandLine;
@@ -71,14 +71,14 @@ public class ExportTestResultsCommand extends AbstractTestOpsCommand {
 
     private List<TestResult> getTestResults(final TestResultService service) throws IOException {
         final List<TestResult> testCases = new ArrayList<>();
-        Page<io.qameta.allure.ee.client.dto.TestResult> current =
-                new Page<io.qameta.allure.ee.client.dto.TestResult>().setNumber(-1);
+        Page<io.github.eroshenkoam.allure.client.dto.TestResult> current =
+                new Page<io.github.eroshenkoam.allure.client.dto.TestResult>().setNumber(-1);
         do {
             current = executeRequest(
                     service.findByRql(allureProjectId, allureTestResultFilter, current.getNumber() + 1, 10)
             );
-            for (io.qameta.allure.ee.client.dto.TestResult info : current.getContent()) {
-                final io.qameta.allure.ee.client.dto.TestResult origin = executeRequest(service.findById(info.getId()));
+            for (io.github.eroshenkoam.allure.client.dto.TestResult info : current.getContent()) {
+                final io.github.eroshenkoam.allure.client.dto.TestResult origin = executeRequest(service.findById(info.getId()));
                 final TestResult testResult = convertTestResult(origin);
 
                 final TestResultScenario scenario = executeRequest(service.getScenario(info.getId()));
@@ -91,7 +91,7 @@ public class ExportTestResultsCommand extends AbstractTestOpsCommand {
         return testCases;
     }
 
-    private TestResult convertTestResult(final io.qameta.allure.ee.client.dto.TestResult origin) {
+    private TestResult convertTestResult(final io.github.eroshenkoam.allure.client.dto.TestResult origin) {
         return new TestResult()
                 .setName(origin.getName())
                 .setUuid(UUID.randomUUID().toString())
