@@ -1,17 +1,17 @@
 package io.github.eroshenkoam.allure.textmarkup;
 
-import io.qameta.allure.ee.client.dto.textmarkup.DefaultTextMarkupDocument;
-import io.qameta.allure.ee.client.dto.textmarkup.TextMarkupDocument;
-import io.qameta.allure.ee.client.dto.textmarkup.document.DocumentNode;
-import io.qameta.allure.ee.client.dto.textmarkup.document.ParagraphDocumentNode;
-import io.qameta.allure.ee.client.dto.textmarkup.paragraph.ParagraphNode;
-import io.qameta.allure.ee.client.dto.textmarkup.paragraph.TextParagraphNode;
-import io.qameta.allure.ee.client.dto.textmarkup.textmark.BoldMark;
-import io.qameta.allure.ee.client.dto.textmarkup.textmark.CodeMark;
-import io.qameta.allure.ee.client.dto.textmarkup.textmark.ItalicMark;
-import io.qameta.allure.ee.client.dto.textmarkup.textmark.LinkMark;
-import io.qameta.allure.ee.client.dto.textmarkup.textmark.StrikeMark;
-import io.qameta.allure.ee.client.dto.textmarkup.textmark.TextMark;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.DefaultTextMarkupDocument;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.TextMarkupDocument;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.document.DocumentNode;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.document.ParagraphDocumentNode;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.paragraph.ParagraphNode;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.paragraph.TextParagraphNode;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.textmark.BoldMark;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.textmark.CodeMark;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.textmark.ItalicMark;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.textmark.LinkMark;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.textmark.StrikeMark;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.textmark.TextMark;
 
 import java.util.ArrayList;
 import java.util.List;

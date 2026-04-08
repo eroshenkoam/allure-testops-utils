@@ -4,8 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 
-import io.qameta.allure.ee.client.dto.textmarkup.DefaultTextMarkupDocument;
-import io.qameta.allure.ee.client.dto.textmarkup.TextMarkupDocument;
+import io.github.eroshenkoam.allure.client.dto.textmarkup.TextMarkupDocument;
 import org.junit.jupiter.api.Test;
 
 

@@ -2,16 +2,16 @@ package io.github.eroshenkoam.allure.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.eroshenkoam.allure.textmarkup.MarkdownToJsonConverter;
-import io.qameta.allure.ee.client.ProjectService;
-import io.qameta.allure.ee.client.ServiceBuilder;
-import io.qameta.allure.ee.client.TestCaseScenarioService;
-import io.qameta.allure.ee.client.TestCaseService;
-import io.qameta.allure.ee.client.dto.Page;
-import io.qameta.allure.ee.client.dto.Project;
-import io.qameta.allure.ee.client.dto.ScenarioNormalized;
-import io.qameta.allure.ee.client.dto.TestCase;
-import io.qameta.allure.ee.client.dto.TestCaseAttachment;
-import io.qameta.allure.ee.client.dto.scenario.*;
+import io.github.eroshenkoam.allure.client.ProjectService;
+import io.github.eroshenkoam.allure.client.ServiceBuilder;
+import io.github.eroshenkoam.allure.client.TestCaseScenarioService;
+import io.github.eroshenkoam.allure.client.TestCaseService;
+import io.github.eroshenkoam.allure.client.dto.Page;
+import io.github.eroshenkoam.allure.client.dto.Project;
+import io.github.eroshenkoam.allure.client.dto.ScenarioNormalized;
+import io.github.eroshenkoam.allure.client.dto.TestCase;
+import io.github.eroshenkoam.allure.client.dto.TestCaseAttachment;
+import io.github.eroshenkoam.allure.client.dto.scenario.*;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import okhttp3.Dispatcher;
@@ -153,11 +153,11 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private TestCaseScenarioV2 migrateScenario(final TestCaseScenarioService tcScenarioService,
                                                final Long testCaseId,
                                                final ScenarioNormalized oldScenario) throws Exception {
-        final Map<Long, io.qameta.allure.ee.client.dto.ScenarioStep> steps = oldScenario.getScenarioSteps();
+        final Map<Long, io.github.eroshenkoam.allure.client.dto.ScenarioStep> steps = oldScenario.getScenarioSteps();
         final List<Long> ids = oldScenario.getRoot().getChildren();
         final List<ScenarioStep> migratedSteps = new ArrayList<>();
         for (final Long id : ids) {
-            final io.qameta.allure.ee.client.dto.ScenarioStep oldStep = steps.get(id);
+            final io.github.eroshenkoam.allure.client.dto.ScenarioStep oldStep = steps.get(id);
             final String name = StringUtils.trimToNull(oldStep.getBody());
             if (StringUtils.isNoneBlank(name)) {
                 final Optional<ScenarioStep> newStep = name.startsWith("expected")
@@ -171,8 +171,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     }
 
     private Optional<ScenarioStep> migrateBodyStep(final Long stepId,
-                                                   final Map<Long, io.qameta.allure.ee.client.dto.ScenarioStep> steps) {
-        final io.qameta.allure.ee.client.dto.ScenarioStep oldStep = steps.get(stepId);
+                                                   final Map<Long, io.github.eroshenkoam.allure.client.dto.ScenarioStep> steps) {
+        final io.github.eroshenkoam.allure.client.dto.ScenarioStep oldStep = steps.get(stepId);
         if (StringUtils.isNoneBlank(oldStep.getBody())) {
 
             final BodyStep step = new BodyStep()

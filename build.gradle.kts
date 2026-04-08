@@ -1,7 +1,6 @@
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
 import com.bmuschko.gradle.docker.tasks.image.Dockerfile
 import org.gradle.kotlin.dsl.support.unzipTo
-import org.gradle.internal.os.OperatingSystem;
 
 plugins {
     java
