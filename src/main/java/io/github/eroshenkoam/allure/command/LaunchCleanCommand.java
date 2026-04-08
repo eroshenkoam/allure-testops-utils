@@ -60,8 +60,11 @@ public class LaunchCleanCommand extends AbstractTestOpsCommand {
         final List<Launch> launchesToDelete = getLaunches(service, launchQuery.toString());
         System.out.printf("Found [%s] launches by query [%s]\n", launchesToDelete.size(), launchQuery);
 
-        for (Launch launch : launchesToDelete) {
+        for (int index = 0; index < launchesToDelete.size(); index++) {
+            final Launch launch = launchesToDelete.get(index);
             executeRequest(service.delete(launch.getId()));
+            System.out.printf("Deleted launch [%s/%s]: id=%s%n",
+                    index + 1, launchesToDelete.size(), launch.getId());
         }
     }
 
