@@ -41,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
@@ -64,7 +63,9 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             Pattern.compile("^[ \\t]*\\|(.*\\|)+$");
 
     private static final Pattern ATTACHMENT_PATTERN =
-            Pattern.compile("!\\[(.*)]\\(/api/rs/testcase/attachment/(?<id>\\d*)/content\\)");
+            Pattern.compile("^!\\[(?<alt>[^\\]]*)]\\(/api/rs/testcase/attachment/(?<id>\\d+)/content\\)$");
+    private static final Pattern INLINE_ATTACHMENT_PATTERN =
+            Pattern.compile("!\\[(?<alt>[^\\]]*)]\\(/api/rs/testcase/attachment/(?<id>\\d+)/content\\)");
 
     private static final Pattern EXPECTED_PATTERN =
             Pattern.compile("\\{\"action\":\"(?<action>.*)\",\"expected\":\"(?<expected>.*)(\"})+");
@@ -141,7 +142,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         if (oldScenario == null || oldScenario.getScenarioSteps() == null || oldScenario.getScenarioSteps().isEmpty()) {
             return;
         }
-        final TestCaseScenarioV2 migratedScenario = migrateScenario(scenarioService, testCaseId, oldScenario);
+        final AttachmentContext attachmentContext = createAttachmentContext(scenarioService, testCaseId);
+        final TestCaseScenarioV2 migratedScenario = migrateScenario(scenarioService, testCaseId, oldScenario, attachmentContext);
         if (migratedScenario == null || migratedScenario.getSteps() == null || migratedScenario.getSteps().isEmpty()) {
             System.out.printf("Scenario for testcase %d migrate with empty result. Skipping\n", testCaseId);
             return;
@@ -152,7 +154,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
 
     private TestCaseScenarioV2 migrateScenario(final TestCaseScenarioService tcScenarioService,
                                                final Long testCaseId,
-                                               final ScenarioNormalized oldScenario) throws Exception {
+                                               final ScenarioNormalized oldScenario,
+                                               final AttachmentContext attachmentContext) throws Exception {
         final Map<Long, io.github.eroshenkoam.allure.client.dto.ScenarioStep> steps = oldScenario.getScenarioSteps();
         final List<Long> ids = oldScenario.getRoot().getChildren();
         final List<ScenarioStep> migratedSteps = new ArrayList<>();
@@ -161,8 +164,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             final String name = StringUtils.trimToNull(oldStep.getBody());
             if (StringUtils.isNoneBlank(name)) {
                 final Optional<ScenarioStep> newStep = name.startsWith("expected")
-                        ? migrateExpectedStep(tcScenarioService, testCaseId, name)
-                        : migrateBodyStep(id, steps);
+                        ? migrateExpectedStep(tcScenarioService, testCaseId, name, attachmentContext)
+                        : migrateBodyStep(id, steps, tcScenarioService, testCaseId, attachmentContext);
                 newStep.ifPresent(migratedSteps::add);
             }
         }
@@ -171,31 +174,57 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     }
 
     private Optional<ScenarioStep> migrateBodyStep(final Long stepId,
-                                                   final Map<Long, io.github.eroshenkoam.allure.client.dto.ScenarioStep> steps) {
+                                                   final Map<Long, io.github.eroshenkoam.allure.client.dto.ScenarioStep> steps,
+                                                   final TestCaseScenarioService tcScenarioService,
+                                                   final Long testCaseId,
+                                                   final AttachmentContext attachmentContext) throws Exception {
         final io.github.eroshenkoam.allure.client.dto.ScenarioStep oldStep = steps.get(stepId);
         if (StringUtils.isNoneBlank(oldStep.getBody())) {
 
             final BodyStep step = new BodyStep()
                     .setBody(oldStep.getBody());
             if (Objects.nonNull(oldStep.getChildren())) {
-                final List<ScenarioStep> subSteps = oldStep.getChildren().stream()
-                        .map(id -> this.migrateBodyStep(id, steps))
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(Collectors.toList());
+                final List<ScenarioStep> subSteps = new ArrayList<>();
+                for (final Long id : oldStep.getChildren()) {
+                    final Optional<ScenarioStep> migrated = this.migrateBodyStep(
+                            id,
+                            steps,
+                            tcScenarioService,
+                            testCaseId,
+                            attachmentContext
+                    );
+                    migrated.ifPresent(subSteps::add);
+                }
                 step.setSteps(subSteps);
             }
             return Optional.of(step);
         }
         if (Objects.nonNull(oldStep.getAttachmentId())) {
-            return Optional.of(new AttachmentStep().setAttachmentId(oldStep.getAttachmentId()));
+            final Long sourceAttachmentId = oldStep.getAttachmentId();
+            final Optional<Long> attachmentId = resolveAttachmentId(
+                    tcScenarioService,
+                    testCaseId,
+                    sourceAttachmentId,
+                    null,
+                    attachmentContext
+            );
+            if (attachmentId.isEmpty()) {
+                System.out.printf(
+                        "WARN: attachment %d for test case %d could not be resolved, dropping step%n",
+                        sourceAttachmentId,
+                        testCaseId
+                );
+                return Optional.empty();
+            }
+            return Optional.of(new AttachmentStep().setAttachmentId(attachmentId.get()));
         }
         return Optional.empty();
     }
 
     private Optional<ScenarioStep> migrateExpectedStep(final TestCaseScenarioService tcScenarioService,
                                                        final Long testCaseId,
-                                                       final String name) throws Exception {
+                                                       final String name,
+                                                       final AttachmentContext attachmentContext) throws Exception {
         final Optional<StepExpected> possibleCustomStep = readStepExpected(
                 StringUtils.trimToNull(name.replaceFirst("expected", "")));
         if (possibleCustomStep.isEmpty()) {
@@ -211,7 +240,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                 tcScenarioService,
                 testCaseId,
                 StringUtils.defaultIfBlank(customStep.getAction(), "Action"),
-                false
+                false,
+                attachmentContext
         );
         final ScenarioStep firstActionStep = actionSteps.getFirst();
         final BodyStep bodyStep = firstActionStep instanceof BodyStep
@@ -222,16 +252,18 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                 tcScenarioService,
                 testCaseId,
                 customStep.getExpected(),
-                true
+                true,
+                attachmentContext
         );
         bodyStep.setExpectedResultSteps(expectedResult);
         return Optional.of(bodyStep);
     }
 
-    private static List<ScenarioStep> getStepsFromText(final TestCaseScenarioService tcScenarioService,
-                                                       final Long testCaseId,
-                                                       final String text,
-                                                       final boolean expected) throws Exception {
+    private List<ScenarioStep> getStepsFromText(final TestCaseScenarioService tcScenarioService,
+                                                final Long testCaseId,
+                                                final String text,
+                                                final boolean expected,
+                                                final AttachmentContext attachmentContext) throws Exception {
         final List<ScenarioStep> result = new ArrayList<>();
         final List<ParsedLine> parsedLines = getParsedLines(text);
         for (final ParsedLine line : parsedLines) {
@@ -242,7 +274,13 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                             : createBodyStep(line.getContent());
                     result.add(step);
                 }
-                case ATTACHMENT -> addAttachmentStep(tcScenarioService, Long.parseLong(line.getContent()))
+                case ATTACHMENT -> addAttachmentStep(
+                                tcScenarioService,
+                                testCaseId,
+                                Long.parseLong(line.getContent()),
+                                line.getAttachmentAlt(),
+                                attachmentContext
+                        )
                         .ifPresent(result::add);
                 case TABLE -> {
                     final Long attachmentId = createTable(tcScenarioService, line.getContent(), testCaseId);
@@ -253,18 +291,93 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         return result;
     }
 
-    private static Optional<ScenarioStep> addAttachmentStep(final TestCaseScenarioService tcScenarioService,
-                                                               final Long attachmentId) {
+    private Optional<ScenarioStep> addAttachmentStep(final TestCaseScenarioService tcScenarioService,
+                                                     final Long testCaseId,
+                                                     final Long attachmentId,
+                                                     final String markdownAttachmentAlt,
+                                                     final AttachmentContext attachmentContext) {
+        return resolveAttachmentId(
+                        tcScenarioService,
+                        testCaseId,
+                        attachmentId,
+                        markdownAttachmentAlt,
+                        attachmentContext
+                )
+                .map(id -> new AttachmentStep().setAttachmentId(id));
+    }
+
+    private Optional<Long> resolveAttachmentId(final TestCaseScenarioService tcScenarioService,
+                                               final Long testCaseId,
+                                               final Long attachmentId,
+                                               final String markdownAttachmentAlt,
+                                               final AttachmentContext attachmentContext) {
+        if (attachmentContext.getOwnedAttachmentIds().contains(attachmentId)) {
+            return Optional.of(attachmentId);
+        }
+        if (attachmentContext.getRemappedAttachmentIds().containsKey(attachmentId)) {
+            return Optional.of(attachmentContext.getRemappedAttachmentIds().get(attachmentId));
+        }
         try (ResponseBody body = executeRequest(tcScenarioService.getAttachmentContent(attachmentId));) {
-            if (body != null && body.contentLength() > 0) {
-                return Optional.of(new AttachmentStep().setAttachmentId(attachmentId));
+            if (body == null || body.contentLength() <= 0) {
+                System.out.printf("Attachment %d content is missing, skipping%n", attachmentId);
+                return Optional.empty();
             }
-            System.out.printf("Attachment %d content is missing, skipping%n", attachmentId);
-            return Optional.empty();
+            final MediaType mediaType = Objects.nonNull(body.contentType())
+                    ? body.contentType()
+                    : MediaType.parse("application/octet-stream");
+            final byte[] content = body.bytes();
+            final RequestBody requestBody = RequestBody.create(content, mediaType);
+            final String fileName = resolveCopiedAttachmentFileName(testCaseId, markdownAttachmentAlt);
+            final MultipartBody.Part copiedAttachment = MultipartBody.Part.createFormData(
+                    "file",
+                    fileName,
+                    requestBody
+            );
+            final List<TestCaseAttachment> createdAttachments = executeRequest(
+                    tcScenarioService.createAttachment(testCaseId, List.of(copiedAttachment))
+            );
+            if (createdAttachments == null || createdAttachments.isEmpty()) {
+                return Optional.empty();
+            }
+            final Long createdAttachmentId = createdAttachments.getFirst().getId();
+            attachmentContext.getRemappedAttachmentIds().put(attachmentId, createdAttachmentId);
+            attachmentContext.getOwnedAttachmentIds().add(createdAttachmentId);
+            System.out.printf(
+                    "Attachment %d does not belong to test case %d. Created copy %d%n",
+                    attachmentId,
+                    testCaseId,
+                    createdAttachmentId
+            );
+            return Optional.of(createdAttachmentId);
         } catch (Exception e) {
-            System.out.printf("Attachment %d not found, skipping%n", attachmentId);
+            System.out.printf("Failed to copy attachment %d for test case %d%n", attachmentId, testCaseId);
             return Optional.empty();
         }
+    }
+
+    private static String resolveCopiedAttachmentFileName(final Long testCaseId, final String markdownAttachmentAlt) {
+        if (StringUtils.isNotBlank(markdownAttachmentAlt)) {
+            return markdownAttachmentAlt.trim();
+        }
+        return String.format("migrated-attachment-%d", testCaseId);
+    }
+
+    private AttachmentContext createAttachmentContext(final TestCaseScenarioService tcScenarioService,
+                                                      final Long testCaseId) throws IOException {
+        final Set<Long> ownedAttachmentIds = ConcurrentHashMap.newKeySet();
+        Page<TestCaseAttachment> current = new Page<TestCaseAttachment>().setNumber(-1);
+        do {
+            current = executeRequest(tcScenarioService.getAttachments(testCaseId, current.getNumber() + 1, PAGE_SIZE));
+            if (current == null || current.getContent() == null) {
+                break;
+            }
+            for (final TestCaseAttachment attachment : current.getContent()) {
+                ownedAttachmentIds.add(attachment.getId());
+            }
+        } while (current.getNumber() + 1 < current.getTotalPages());
+        return new AttachmentContext()
+                .setOwnedAttachmentIds(ownedAttachmentIds)
+                .setRemappedAttachmentIds(new ConcurrentHashMap<>());
     }
 
     private static List<ParsedLine> getParsedLines(final String text) {
@@ -273,9 +386,35 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         final List<ParsedLine> lines = Arrays.stream(preparedText.split("\n"))
                 .filter(s -> !s.isBlank())
                 .map(StringEscapeUtils::unescapeJson)
-                .map(MigrateTestCasesCommand::parseLine)
+                .flatMap(line -> parseLineWithAttachments(line).stream())
                 .toList();
         return collectLines(lines);
+    }
+
+    private static List<ParsedLine> parseLineWithAttachments(final String line) {
+        final Matcher attachmentMatcher = INLINE_ATTACHMENT_PATTERN.matcher(line);
+        if (!attachmentMatcher.find()) {
+            return List.of(parseLine(line));
+        }
+        final List<ParsedLine> parsed = new ArrayList<>();
+        int start = 0;
+        do {
+            final String before = line.substring(start, attachmentMatcher.start());
+            if (!before.isBlank()) {
+                parsed.add(parseLine(before));
+            }
+            final String attachmentId = attachmentMatcher.group("id");
+            parsed.add(new ParsedLine()
+                    .setContent(attachmentId)
+                    .setAttachmentAlt(StringUtils.trimToNull(attachmentMatcher.group("alt")))
+                    .setType(LineType.ATTACHMENT));
+            start = attachmentMatcher.end();
+        } while (attachmentMatcher.find());
+        final String after = line.substring(start);
+        if (!after.isBlank()) {
+            parsed.add(parseLine(after));
+        }
+        return parsed;
     }
 
     private static List<ParsedLine> collectLines(final List<ParsedLine> lines) {
@@ -296,7 +435,8 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                         }
                         final ParsedLine newLine = new ParsedLine()
                                 .setType(current.getType())
-                                .setContent(current.getContent());
+                                .setContent(current.getContent())
+                                .setAttachmentAlt(current.getAttachmentAlt());
                         result.add(newLine);
                     }
                 }
@@ -311,6 +451,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             final long attachmentId = Long.parseLong(attachmentMatcher.group("id"));
             return new ParsedLine()
                     .setContent(Long.toString(attachmentId))
+                    .setAttachmentAlt(StringUtils.trimToNull(attachmentMatcher.group("alt")))
                     .setType(LineType.ATTACHMENT);
         }
         final Matcher headerMatcher = HEADER_PATTERN.matcher(line);
@@ -458,6 +599,7 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     private static class ParsedLine {
         private LineType type;
         private String content;
+        private String attachmentAlt;
     }
 
     @Data
@@ -471,6 +613,13 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
     @Accessors(chain = true)
     private static class TableStep implements ScenarioStep {
         private String table;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    private static class AttachmentContext {
+        private Set<Long> ownedAttachmentIds;
+        private Map<Long, Long> remappedAttachmentIds;
     }
 
 }
