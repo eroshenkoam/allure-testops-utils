@@ -101,11 +101,105 @@ public final class MarkdownToJsonConverter {
         
         // Post-process the document to handle multiline italic text
         postProcessMultilineItalic(content);
-        
+
         // Post-process to merge split italic markers
         postProcessSplitItalicMarkers(content);
-        
+
+        // Final sweep: handle any remaining ITALIC_START/ITALIC_END pairs that survived
+        // earlier post-processing (e.g. second-and-later single-node pairs that
+        // processDocumentForItalicMarkers ignores because it breaks after the first match).
+        postProcessRemainingSingleNodeItalicMarkers(content);
+
         return document;
+    }
+
+    /**
+     * Splits text nodes that still contain matched {@code ITALIC_START..ITALIC_END} pairs
+     * inside a single node into separate text runs, wrapping the inner content with an italic mark.
+     * Nodes without both markers are left untouched.
+     */
+    private static void postProcessRemainingSingleNodeItalicMarkers(final List<DocumentNode> content) {
+        for (final DocumentNode node : content) {
+            if (!(node instanceof ParagraphDocumentNode paragraphNode)) {
+                continue;
+            }
+            final List<ParagraphNode> paragraphContent = paragraphNode.getContent();
+            if (paragraphContent == null || paragraphContent.isEmpty()) {
+                continue;
+            }
+
+            final List<ParagraphNode> rebuilt = new ArrayList<>(paragraphContent.size());
+            boolean modified = false;
+            for (final ParagraphNode child : paragraphContent) {
+                if (!(child instanceof TextParagraphNode textNode)) {
+                    rebuilt.add(child);
+                    continue;
+                }
+                final String text = textNode.getText();
+                if (text == null
+                        || !text.contains(ITALIC_START)
+                        || text.indexOf(ITALIC_END, text.indexOf(ITALIC_START) + ITALIC_START.length()) < 0) {
+                    rebuilt.add(child);
+                    continue;
+                }
+                rebuilt.addAll(splitNodeOnItalicMarkers(textNode));
+                modified = true;
+            }
+            if (modified) {
+                paragraphContent.clear();
+                paragraphContent.addAll(rebuilt);
+            }
+        }
+    }
+
+    private static List<ParagraphNode> splitNodeOnItalicMarkers(final TextParagraphNode source) {
+        final String text = source.getText();
+        final List<TextMark> baseMarks = source.getMarks();
+        final List<ParagraphNode> parts = new ArrayList<>();
+        int cursor = 0;
+        while (cursor < text.length()) {
+            final int start = text.indexOf(ITALIC_START, cursor);
+            if (start < 0) {
+                appendTextNode(parts, text.substring(cursor), baseMarks);
+                break;
+            }
+            final int end = text.indexOf(ITALIC_END, start + ITALIC_START.length());
+            if (end < 0) {
+                // No closing marker — emit the rest verbatim, dropping the orphan start marker.
+                appendTextNode(parts,
+                        (text.substring(cursor, start) + text.substring(start + ITALIC_START.length())),
+                        baseMarks);
+                break;
+            }
+            if (start > cursor) {
+                appendTextNode(parts, text.substring(cursor, start), baseMarks);
+            }
+            final String italicText = text.substring(start + ITALIC_START.length(), end);
+            if (!italicText.isEmpty()) {
+                final List<TextMark> italicMarks = baseMarks == null
+                        ? new ArrayList<>(1)
+                        : new ArrayList<>(baseMarks);
+                italicMarks.add(new ItalicMark());
+                final TextParagraphNode italicNode = new TextParagraphNode();
+                italicNode.setText(italicText);
+                italicNode.setMarks(italicMarks);
+                parts.add(italicNode);
+            }
+            cursor = end + ITALIC_END.length();
+        }
+        return parts;
+    }
+
+    private static void appendTextNode(final List<ParagraphNode> parts,
+                                       final String text,
+                                       final List<TextMark> marks) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        final TextParagraphNode node = new TextParagraphNode();
+        node.setText(text);
+        node.setMarks(marks);
+        parts.add(node);
     }
     
     private static void addEmptyParagraph(final List<DocumentNode> content) {

@@ -14,6 +14,21 @@ public class MarkdownToJsonConverterTestCase {
 
     
     @Test
+    void shouldHandleMultipleSingleLineItalicsInOnePass() throws JsonProcessingException {
+        final String inputString =
+                "_В виджете абонента отображаются данные, полученные из функций_\n"
+                        + "next line\n"
+                        + "_Для переключателя в положении \"true\" выполняется запрос API SLS_";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).doesNotContain("ITALICSTART").doesNotContain("ITALICEND");
+        assertThat(json.split("\"italic\"")).hasSizeGreaterThanOrEqualTo(3);
+    }
+
+    @Test
     void shouldNotConvertUnderscoresInIdentifiers() throws JsonProcessingException {
         final String inputString = "**Setup step. Получение токена для пользователя `MGF_B2B_FCOKK`**";
 
