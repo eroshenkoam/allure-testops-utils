@@ -16,5 +16,6 @@ public class TestResultScenario implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private List<TestResultStep> steps;
+    private List<TestResultAttachment> attachments;
 
 }

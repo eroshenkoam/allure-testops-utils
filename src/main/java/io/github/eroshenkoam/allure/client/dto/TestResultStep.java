@@ -25,6 +25,8 @@ public class TestResultStep implements Serializable {
     private String message;
     private String trace;
 
+    private String expectedResult;
+
     private TestStatus status;
 
     private List<TestResultStep> steps;
