@@ -235,4 +235,153 @@ public class MarkdownToJsonConverterTestCase {
             .as("Should not have orphaned * nodes with null marks after post-processing")
             .isFalse();
     }
+
+    @Test
+    void shouldConvertEverySingleLineItalicSplitByInlineCode() throws JsonProcessingException {
+        final String inputString = "_Выполнен запрос `GET /api/v1` для проверки_\n"
+                + "next line\n"
+                + "_Второй запрос `POST /api/v2` тоже выполнен_";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).doesNotContain("ITALICSTART").doesNotContain("ITALICEND");
+        assertThat(json).contains("Второй запрос").contains("тоже выполнен");
+    }
+
+    @Test
+    void shouldConvertEveryMultilineItalicInOneDocument() throws JsonProcessingException {
+        final String inputString = "Заголовок\n"
+                + "_Первая строка италика\n"
+                + "вторая строка италика_\n"
+                + "Обычный текст\n"
+                + "_Третья строка италика\n"
+                + "четвёртая строка италика_\n"
+                + "Конец";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).doesNotContain("ITALICSTART").doesNotContain("ITALICEND");
+        assertThat(json).contains("Третья строка италика").contains("четвёртая строка италика");
+        assertThat(json.split("\"italic\"")).hasSizeGreaterThanOrEqualTo(5);
+    }
+
+    @Test
+    void shouldConvertEveryItalicSplitByLink() throws JsonProcessingException {
+        final String inputString = "_См. [ссылку](http://example.com) здесь_\n"
+                + "текст\n"
+                + "_И [другую](http://example.org) тоже_";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).doesNotContain("ITALICSTART").doesNotContain("ITALICEND");
+        assertThat(json).contains("http://example.org");
+    }
+
+    @Test
+    void shouldKeepTextAroundItalicMarkers() throws JsonProcessingException {
+        final String inputString = "- Выполнен запрос _POST OAPI/v2/subscribers/{subscriberId}/subscriptionGroups/search_"
+                + " - получение информации по сообществу в зависимости от роли";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).doesNotContain("ITALICSTART").doesNotContain("ITALICEND");
+        assertThat(json).contains("* Выполнен запрос ");
+        assertThat(json).contains(" - получение информации по сообществу в зависимости от роли");
+        assertThat(json).contains("\"type\":\"italic\"");
+    }
+
+    @Test
+    void shouldDropItalicMarkerWithoutPair() throws JsonProcessingException {
+        final String inputString = "_Открытый италик без закрывающего маркера";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).doesNotContain("ITALICSTART").doesNotContain("ITALICEND");
+        assertThat(json).contains("Открытый италик без закрывающего маркера");
+    }
+
+    @Test
+    void shouldRenderListItemsWithAsteriskAndFourSpaceIndent() throws JsonProcessingException {
+        final String inputString = "- Отображается несворачиваемый блок со следующими данными:\n"
+                + "  - Объем организатора:\n"
+                + "    - отображается \"безлимитно\", ЕСЛИ:\n"
+                + "* Лимит сообщества";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).contains("* Отображается несворачиваемый блок со следующими данными:");
+        assertThat(json).contains("    * Объем организатора:");
+        assertThat(json).contains("        * отображается ");
+        assertThat(json).contains("* Лимит сообщества");
+        assertThat(json).doesNotContain("- Объем организатора");
+    }
+
+    @Test
+    void shouldNotReadListItemAsteriskAsItalicMarker() throws JsonProcessingException {
+        final String inputString = "- пункт с *выделением* и `кодом`";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        // the marker is its own node, so it cannot open an italic span over the rest of the item
+        assertThat(json).contains("\"text\":\"* \",\"marks\":null");
+        assertThat(json).contains("\"text\":\"выделением\"");
+        assertThat(json).contains("\"type\":\"italic\"");
+        assertThat(json).contains("\"type\":\"code\"");
+        assertThat(json).doesNotContain("\"text\":\"пункт с\",\"marks\":[{\"type\":\"italic\"");
+    }
+
+    @Test
+    void shouldKeepNumberedListItemsUnchanged() throws JsonProcessingException {
+        final String inputString = "1. Первый шаг\n2. Второй шаг";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).contains("1. Первый шаг").contains("2. Второй шаг");
+        assertThat(json).doesNotContain("*");
+    }
+
+    @Test
+    void shouldKeepHeadingLevelAsHashesAndColourFirstLevel() throws JsonProcessingException {
+        final String inputString = "# Заголовок первого уровня";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).contains("# Заголовок первого уровня");
+        assertThat(json).contains("\"type\":\"bold\"");
+        assertThat(json).contains("\"type\":\"text_color\"");
+        assertThat(json).contains("\"kind\":\"green\"");
+    }
+
+    @Test
+    void shouldNotColourNestedHeadings() throws JsonProcessingException {
+        final String inputString = "## Второй уровень\n### Третий уровень";
+
+        final TextMarkupDocument result = MarkdownToJsonConverter.convertToJson(inputString);
+        final ObjectMapper jsonMapper = new JsonMapper();
+        final String json = jsonMapper.writeValueAsString(result);
+
+        assertThat(json).contains("## Второй уровень");
+        assertThat(json).contains("### Третий уровень");
+        assertThat(json).contains("\"type\":\"bold\"");
+        assertThat(json).doesNotContain("text_color");
+    }
+
 }

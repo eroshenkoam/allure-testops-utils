@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -121,8 +122,18 @@ public abstract class AbstractTestOpsCommand implements Runnable {
     protected static <T> T executeRequest(final Call<T> call) throws IOException {
         final Response<T> response = call.execute();
         if (!response.isSuccessful()) {
-            System.out.println(response.errorBody().string());
-            throw new RuntimeException(response.errorBody().string());
+            // The error body is a one shot stream: read it once, otherwise the second read is empty
+            // and the exception carries no reason at all.
+            final String error = Objects.isNull(response.errorBody())
+                    ? ""
+                    : response.errorBody().string();
+            throw new RuntimeException(String.format(
+                    "%s %s failed with status %d: %s",
+                    call.request().method(),
+                    call.request().url(),
+                    response.code(),
+                    error
+            ));
         }
         return response.body();
     }
@@ -142,6 +153,8 @@ public abstract class AbstractTestOpsCommand implements Runnable {
                     task.accept(id);
                     return true;
                 } catch (Throwable e) {
+                    // Without this the whole failure is invisible: only the error count is reported
+                    System.out.printf("ERROR: task '%s' failed for id %d: %s%n", description, id, e);
                     return false;
                 }
             });
