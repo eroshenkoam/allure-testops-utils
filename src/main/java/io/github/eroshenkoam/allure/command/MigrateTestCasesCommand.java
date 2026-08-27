@@ -296,14 +296,22 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                                                      final Long attachmentId,
                                                      final String markdownAttachmentAlt,
                                                      final AttachmentContext attachmentContext) {
-        return resolveAttachmentId(
-                        tcScenarioService,
-                        testCaseId,
-                        attachmentId,
-                        markdownAttachmentAlt,
-                        attachmentContext
-                )
-                .map(id -> new AttachmentStep().setAttachmentId(id));
+        final Optional<Long> resolved = resolveAttachmentId(
+                tcScenarioService,
+                testCaseId,
+                attachmentId,
+                markdownAttachmentAlt,
+                attachmentContext
+        );
+        if (resolved.isEmpty()) {
+            System.out.printf(
+                    "WARN: inline attachment %d for test case %d could not be resolved, dropping step%n",
+                    attachmentId,
+                    testCaseId
+            );
+            return Optional.empty();
+        }
+        return resolved.map(id -> new AttachmentStep().setAttachmentId(id));
     }
 
     private Optional<Long> resolveAttachmentId(final TestCaseScenarioService tcScenarioService,
@@ -319,7 +327,12 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         }
         try (ResponseBody body = executeRequest(tcScenarioService.getAttachmentContent(attachmentId));) {
             if (body == null || body.contentLength() <= 0) {
-                System.out.printf("Attachment %d content is missing, skipping%n", attachmentId);
+                System.out.printf(
+                        "WARN: attachment %d content is missing (length %d), skipping for test case %d%n",
+                        attachmentId,
+                        Objects.isNull(body) ? -1 : body.contentLength(),
+                        testCaseId
+                );
                 return Optional.empty();
             }
             final MediaType mediaType = Objects.nonNull(body.contentType())
@@ -337,6 +350,11 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
                     tcScenarioService.createAttachment(testCaseId, List.of(copiedAttachment))
             );
             if (createdAttachments == null || createdAttachments.isEmpty()) {
+                System.out.printf(
+                        "WARN: copying attachment %d to test case %d returned no attachment%n",
+                        attachmentId,
+                        testCaseId
+                );
                 return Optional.empty();
             }
             final Long createdAttachmentId = createdAttachments.getFirst().getId();
@@ -350,7 +368,12 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
             );
             return Optional.of(createdAttachmentId);
         } catch (Exception e) {
-            System.out.printf("Failed to copy attachment %d for test case %d%n", attachmentId, testCaseId);
+            System.out.printf(
+                    "WARN: failed to copy attachment %d for test case %d: %s%n",
+                    attachmentId,
+                    testCaseId,
+                    e
+            );
             return Optional.empty();
         }
     }
@@ -456,10 +479,10 @@ public class MigrateTestCasesCommand extends AbstractTestOpsCommand {
         }
         final Matcher headerMatcher = HEADER_PATTERN.matcher(line);
         if (headerMatcher.matches()) {
-            final String text = headerMatcher.group("text");
+            // Keep the hashes: the converter reads the heading level from them and colours the first
             return new ParsedLine()
                     .setType(LineType.CONTENT)
-                    .setContent(String.format("**%s**", text));
+                    .setContent(line);
         }
         final Matcher listItemMatcher = LIST_ITEM_PATTERN.matcher(line);
         if (listItemMatcher.matches()) {
